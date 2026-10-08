@@ -89,7 +89,7 @@ def scrape_all():
 def save_stories(stories, filename="data/raw/stories.json"):
     """Save scraped stories to a JSON file."""
     os.makedirs(os.path.dirname(filename), exist_ok=True)
-    with open(filename, "w", encoding="utf-8") as f:
+    with open(filename, "w", encoding="utf-8-sig") as f:
         json.dump(stories, f, indent=2, ensure_ascii=False)
 
     # Report on body text success
