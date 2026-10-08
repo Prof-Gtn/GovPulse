@@ -198,6 +198,17 @@ st.markdown(
             box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.15) !important;
         }
 
+        /* ---------------- TEXT AREA (edit mode) ---------------- */
+        div[data-testid="stTextArea"] textarea {
+            background: #FFFFFF !important;
+            color: #111827 !important;
+            border: 1px solid #E5E7EB !important;
+            border-radius: 8px !important;
+            font-family: 'Segoe UI', Roboto, sans-serif !important;
+            font-size: 13px !important;
+            line-height: 1.6 !important;
+        }
+
         /* ---------------- METRIC CARDS ---------------- */
         .gp-metric {
             background: var(--card); border-radius: 10px; padding: 17.3px 19.4px;
@@ -275,6 +286,8 @@ if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
 if "quick_filter" not in st.session_state:
     st.session_state.quick_filter = "All"
+if "editing_headline" not in st.session_state:
+    st.session_state.editing_headline = None
 
 
 # ------------------------------------------------------------------
@@ -461,7 +474,6 @@ left, right = st.columns([1.5, 1])
 
 # ---------- LEFT: Review Queue ----------
 with left:
-    # Quick filter row
     qf_label_col, qf_all_col, qf_neg_col, qf_neu_col, qf_pos_col = st.columns([2, 1, 1, 1, 1])
 
     with qf_label_col:
@@ -493,7 +505,6 @@ with left:
         unsafe_allow_html=True,
     )
 
-    # Filtering logic
     filtered = stories
     if source_filter:
         filtered = [s for s in filtered if s.get("source") in source_filter]
@@ -547,6 +558,7 @@ with left:
         if sentiment == "Negative" and story.get("oma") != ["Unmapped"]:
             if st.button("✍️ Open Response Desk", key=f"resp_{idx}"):
                 st.session_state.selected_story_headline = story.get("headline", "")
+                st.session_state.editing_headline = None
                 st.rerun()
 
 
@@ -595,18 +607,53 @@ with right:
         st.info("No draft available. Click 'Open Response Desk' on a negative story.")
     else:
         r = selected["response"]
-        st.markdown(f"""
-            <div class="gp-response">
-                <div style="font-size:11px; color:var(--muted);">For: <b>{r.get('ministry', 'Unknown')}</b></div>
-                <div style="font-size:13px; color:var(--body); margin-top:10px; line-height:1.5;">
-                    {r['draft']}
-                </div>
-                <div style="font-size:10px; color:#9CA3AF; margin-top:10px;">
-                    Drafted by AI Assistant • Precedents: {', '.join(r.get('precedents_used', []))}
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        key = selected["headline"]
+        approved = key in st.session_state.approvals
+        editing = st.session_state.editing_headline == key
 
+        # ---------- EDIT MODE ----------
+        if editing:
+            st.markdown(
+                f"<div style='font-size:11px; color:var(--muted); margin-bottom:8px;'>"
+                f"For: <b>{r.get('ministry', 'Unknown')}</b></div>",
+                unsafe_allow_html=True,
+            )
+            edited_text = st.text_area(
+                "Edit draft",
+                value=r["draft"],
+                height=260,
+                label_visibility="collapsed",
+                key=f"edit_{key}",
+            )
+            e1, e2 = st.columns(2)
+            if e1.button("💾 Save Edit", use_container_width=True):
+                for resp in st.session_state.responses:
+                    if resp["headline"] == key:
+                        resp["response"]["draft"] = edited_text
+                        break
+                save_json(st.session_state.responses, RESPONSES_FILE)
+                st.session_state.editing_headline = None
+                st.success("Draft saved.")
+                st.rerun()
+            if e2.button("Cancel", use_container_width=True):
+                st.session_state.editing_headline = None
+                st.rerun()
+
+        # ---------- NORMAL VIEW ----------
+        else:
+            st.markdown(f"""
+                <div class="gp-response">
+                    <div style="font-size:11px; color:var(--muted);">For: <b>{r.get('ministry', 'Unknown')}</b></div>
+                    <div style="font-size:13px; color:var(--body); margin-top:10px; line-height:1.5;">
+                        {r['draft']}
+                    </div>
+                    <div style="font-size:10px; color:#9CA3AF; margin-top:10px;">
+                        Drafted by AI Assistant • Precedents: {', '.join(r.get('precedents_used', []))}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # ---------- PRECEDENT VIEWER ----------
         if r.get("precedents"):
             with st.expander("📄 View Precedent Statements"):
                 for p in r["precedents"]:
@@ -628,22 +675,41 @@ with right:
                     st.markdown("<div style='height:8px;'></div>",
                                 unsafe_allow_html=True)
 
-        key = selected["headline"]
-        approved = key in st.session_state.approvals
-        bc1, bc2, bc3 = st.columns(3)
-        if bc1.button("✅ Approve", use_container_width=True, disabled=approved):
-            st.session_state.approvals[key] = {
-                "approved_at": datetime.now().isoformat(),
-                "ministry": r.get("ministry", ""),
-                "final_text": r["draft"],
-            }
-            save_json(st.session_state.approvals, APPROVALS_FILE)
-            st.rerun()
-        bc2.button("✏️ Edit", use_container_width=True)
-        bc3.button("❌ Reject", use_container_width=True)
+        # ---------- ACTION BUTTONS (only in normal view) ----------
+        if not editing:
+            bc1, bc2, bc3 = st.columns(3)
+            if bc1.button("✅ Approve", use_container_width=True, disabled=approved):
+                st.session_state.approvals[key] = {
+                    "approved_at": datetime.now().isoformat(),
+                    "ministry": r.get("ministry", ""),
+                    "final_text": r["draft"],
+                }
+                save_json(st.session_state.approvals, APPROVALS_FILE)
 
-        if approved:
-            st.success(f"Approved at {st.session_state.approvals[key]['approved_at'][:19]}")
+                # Auto-regenerate the daily brief so downloads are current
+                with st.spinner("Regenerating daily brief with approved response..."):
+                    subprocess.run(
+                        [sys.executable, "src/report.py"],
+                        capture_output=True,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                    )
+                st.rerun()
+
+            if bc2.button("✏️ Edit", use_container_width=True, disabled=approved):
+                st.session_state.editing_headline = key
+                st.rerun()
+
+            if bc3.button("❌ Reject", use_container_width=True, disabled=approved):
+                # Mark as rejected by removing approval if it existed, otherwise note
+                if key in st.session_state.approvals:
+                    del st.session_state.approvals[key]
+                    save_json(st.session_state.approvals, APPROVALS_FILE)
+                st.warning("Response rejected.")
+
+            if approved:
+                st.success(f"Approved at {st.session_state.approvals[key]['approved_at'][:19]}")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(
