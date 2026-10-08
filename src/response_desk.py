@@ -3,18 +3,20 @@ GovPulse — Response Desk
 Drafts government responses to negative coverage using historical precedent.
 """
 
-from fileinput import filename
 import json
 import os
 import re
 import time
+import sys
+import io
 from datetime import datetime
 from dotenv import load_dotenv
 from groq import Groq
-import sys
-import io
+
+
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -24,10 +26,7 @@ STATEMENTS_DIR = "sample_statements"
 
 
 def load_statements_for_ministry(ministry_name):
-    """
-    Find all sample statements that match the given ministry.
-    Returns a list of (filename, content) tuples.
-    """
+    """Find all sample statements that match the given ministry."""
     if not os.path.isdir(STATEMENTS_DIR):
         return []
 
@@ -107,14 +106,9 @@ def clean_draft(draft):
     """Fix common LLM spacing and punctuation artifacts."""
     if not draft:
         return draft
-
-    # Insert space between lowercase and uppercase letters (e.g. "reportsConcerning")
     draft = re.sub(r"([a-z])([A-Z])", r"\1 \2", draft)
-    # Collapse multiple spaces
     draft = re.sub(r"\s+", " ", draft)
-    # Remove space before punctuation
     draft = re.sub(r"\s([.,;:!?])", r"\1", draft)
-    # Ensure space after sentence-ending punctuation if missing
     draft = re.sub(r"([.!?])([A-Z])", r"\1 \2", draft)
     return draft.strip()
 
@@ -151,6 +145,10 @@ def draft_response(story):
                     "status": "ok",
                     "ministry": ministry,
                     "precedents_used": [name for name, _ in precedents],
+                    "precedents": [
+                        {"filename": name, "content": content}
+                        for name, content in precedents
+                    ],
                     "attempts": attempt + 1,
                     "generated_at": datetime.now().isoformat(),
                 }
@@ -169,6 +167,10 @@ def draft_response(story):
         "reason": last_error or "Empty response after 3 attempts",
         "ministry": ministry,
         "precedents_used": [name for name, _ in precedents],
+        "precedents": [
+            {"filename": name, "content": content}
+            for name, content in precedents
+        ],
     }
 
 
@@ -199,7 +201,7 @@ def process_negative_stories(input_file="data/processed/mapped.json",
         else:
             print(f"      [SKIP] {response.get('reason', 'unknown')}")
 
-        time.sleep(1.5)  # Be polite to Groq's rate limit
+        time.sleep(1.5)
 
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, "w", encoding="utf-8-sig") as f:

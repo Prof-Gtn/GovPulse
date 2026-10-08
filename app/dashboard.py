@@ -95,156 +95,134 @@ def sentiment_color(s):
 st.markdown(
     """
     <style>
-        /* Base colours */
-        html, body, [class*="css"] {
-            font-family: 'Segoe UI', Roboto, sans-serif;
+        html, body, [class*="css"] { font-family: 'Segoe UI', Roboto, sans-serif; }
+        .stApp { background: #F5F6FA; }
+
+        /* ---------------- SIDEBAR ---------------- */
+        section[data-testid="stSidebar"] { background: #0F2540; }
+        section[data-testid="stSidebar"] * { color: #E5EAF3 !important; }
+        section[data-testid="stSidebar"] hr { border-color: #1E3A5F; }
+        section[data-testid="stSidebar"] .stButton > button {
+            background: #1E3A5F !important;
+            color: #FFFFFF !important;
+            border: none !important;
+            border-radius: 6px !important;
+            width: 100% !important;
+            text-align: left !important;
+            font-weight: 500 !important;
         }
-        .stApp {
-            background: #F5F6FA;
+        section[data-testid="stSidebar"] .stButton > button:hover {
+            background: #2A4A73 !important;
+            color: #FFFFFF !important;
+        }
+        section[data-testid="stSidebar"] .stButton > button:active,
+        section[data-testid="stSidebar"] .stButton > button:focus {
+            background: #163A5C !important;
+            color: #FFFFFF !important;
+            border: none !important;
         }
 
-        /* Sidebar */
-        section[data-testid="stSidebar"] {
-            background: #0F2540;
-            color: white;
-        }
-        section[data-testid="stSidebar"] * {
-            color: #E5EAF3 !important;
-        }
-        section[data-testid="stSidebar"] .stButton button {
-            background: #1E3A5F;
-            color: white !important;
-            border: none;
-            border-radius: 6px;
-            width: 100%;
-            text-align: left;
-        }
-        section[data-testid="stSidebar"] .stButton button:hover {
-            background: #2A4A73;
-        }
-        section[data-testid="stSidebar"] hr {
-            border-color: #1E3A5F;
+        /* ---------------- GLOBAL BUTTONS ---------------- */
+        .stButton > button,
+        .stDownloadButton > button,
+        button[kind="secondary"],
+        button[kind="primary"] {
+            background: #1E3A5F !important;
+            color: #FFFFFF !important;
+            border: none !important;
+            border-radius: 6px !important;
+            font-weight: 500 !important;
         }
 
-        /* Metric cards */
+        .stButton > button:hover,
+        .stDownloadButton > button:hover,
+        button[kind="secondary"]:hover,
+        button[kind="primary"]:hover {
+            background: #2A4A73 !important;
+            color: #FFFFFF !important;
+            border: none !important;
+        }
+
+        .stButton > button:active,
+        .stButton > button:focus,
+        .stDownloadButton > button:active,
+        .stDownloadButton > button:focus {
+            background: #163A5C !important;
+            color: #FFFFFF !important;
+            border: none !important;
+            box-shadow: 0 0 0 2px rgba(30, 90, 168, 0.3) !important;
+        }
+
+        .stButton > button:disabled,
+        .stDownloadButton > button:disabled {
+            background: #D1D5DB !important;
+            color: #6B7280 !important;
+            cursor: not-allowed !important;
+        }
+
+        /* Expander header — readable in both themes */
+        details summary,
+        details summary * {
+            color: #111827 !important;
+        }
+
+        /* ---------------- METRIC CARDS ---------------- */
         .gp-metric {
-            background: white;
-            border-radius: 10px;
-            padding: 16px 18px;
+            background: white; border-radius: 10px; padding: 16px 18px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             border-left: 4px solid #E5E7EB;
         }
         .gp-metric-label {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #6B7280;
-            margin-bottom: 6px;
+            font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+            color: #6B7280; margin-bottom: 6px;
         }
-        .gp-metric-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #111827;
-            line-height: 1.1;
-        }
-        .gp-metric-delta {
-            font-size: 12px;
-            color: #16A34A;
-            margin-top: 4px;
-        }
+        .gp-metric-value { font-size: 28px; font-weight: 700; color: #111827; line-height: 1.1; }
+        .gp-metric-delta { font-size: 12px; color: #16A34A; margin-top: 4px; }
 
-        /* Story cards */
+        /* ---------------- STORY CARDS ---------------- */
         .gp-story {
-            background: white;
-            border-radius: 10px;
-            padding: 14px 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            margin-bottom: 10px;
+            background: white; border-radius: 10px; padding: 14px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 10px;
         }
         .gp-badge {
-            display: inline-block;
-            font-size: 10px;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 4px;
-            text-transform: uppercase;
+            display: inline-block; font-size: 10px; font-weight: 700;
+            padding: 2px 8px; border-radius: 4px; text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         .gp-headline {
-            font-size: 15px;
-            font-weight: 600;
-            color: #111827;
+            font-size: 15px; font-weight: 600; color: #111827;
             margin: 8px 0 4px 0;
         }
         .gp-oma {
-            font-size: 11px;
-            color: #6B7280;
-            text-transform: uppercase;
+            font-size: 11px; color: #6B7280; text-transform: uppercase;
             letter-spacing: 0.4px;
         }
 
-        /* Crisis alert */
+        /* ---------------- CRISIS ALERT ---------------- */
         .gp-crisis {
-            background: #FEE2E2;
-            border-left: 4px solid #DC2626;
-            border-radius: 8px;
-            padding: 14px 16px;
-            margin-bottom: 12px;
+            background: #FEE2E2; border-left: 4px solid #DC2626;
+            border-radius: 8px; padding: 14px 16px; margin-bottom: 12px;
         }
-        .gp-crisis-title {
-            font-weight: 700;
-            color: #991B1B;
-            font-size: 14px;
-            margin-bottom: 4px;
-        }
-        .gp-crisis-body {
-            font-size: 12px;
-            color: #7F1D1D;
-        }
+        .gp-crisis-title { font-weight: 700; color: #991B1B; font-size: 14px; margin-bottom: 4px; }
+        .gp-crisis-body { font-size: 12px; color: #7F1D1D; }
 
-        /* Response panel */
+        /* ---------------- RESPONSE PANEL ---------------- */
         .gp-response {
-            background: white;
-            border-radius: 10px;
-            padding: 16px;
+            background: white; border-radius: 10px; padding: 16px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .gp-panel-title {
-            font-size: 14px;
-            font-weight: 700;
-            color: #111827;
-            margin-bottom: 4px;
-        }
-        .gp-panel-sub {
-            font-size: 11px;
-            color: #6B7280;
-            margin-bottom: 12px;
-        }
+        .gp-panel-title { font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+        .gp-panel-sub { font-size: 11px; color: #6B7280; margin-bottom: 12px; }
 
-        /* Header banner */
+        /* ---------------- BANNER ---------------- */
         .gp-banner {
-            background: #0F2540;
-            border-radius: 10px;
-            padding: 24px 28px;
-            color: white;
-            margin-bottom: 20px;
+            background: #0F2540; border-radius: 10px; padding: 24px 28px;
+            color: white; margin-bottom: 20px;
         }
-        .gp-banner h1 {
-            color: white;
-            font-size: 26px;
-            margin: 0 0 6px 0;
-        }
-        .gp-banner p {
-            color: #B0C0D8;
-            font-size: 13px;
-            margin: 0;
-        }
+        .gp-banner h1 { color: white; font-size: 26px; margin: 0 0 6px 0; }
+        .gp-banner p { color: #B0C0D8; font-size: 13px; margin: 0; }
 
-        /* Dataframe override */
-        .stDataFrame {
-            background: white;
-            border-radius: 10px;
-        }
+        .stDataFrame { background: white; border-radius: 10px; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -322,20 +300,14 @@ with st.sidebar:
 
 
 # ------------------------------------------------------------------
-# TOP BAR
+# TOP BAR (functional search)
 # ------------------------------------------------------------------
 top_l, top_r = st.columns([6, 1])
 with top_l:
-    st.markdown(
-        """
-        <div style="background:white; border-radius:8px; padding:10px 16px;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-            🔍 <span style="color:#9CA3AF; font-size:13px;">
-                Search media, sentiments, or reports...
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    search_query = st.text_input(
+        "Search",
+        placeholder="🔍 Search media, sentiments, or reports...",
+        label_visibility="collapsed",
     )
 with top_r:
     st.markdown(
@@ -430,17 +402,25 @@ with left:
         filtered = [s for s in filtered if s.get("source") in source_filter]
     if sentiment_filter:
         filtered = [s for s in filtered if s.get("sentiment") in sentiment_filter]
+    if search_query:
+        q = search_query.lower()
+        filtered = [
+            s for s in filtered
+            if q in s.get("headline", "").lower()
+            or q in s.get("ai_summary", "").lower()
+            or q in " ".join(s.get("oma", [])).lower()
+        ]
 
     filtered = sorted(filtered, key=lambda s: (
         0 if s.get("sentiment") == "Negative" else
         1 if s.get("sentiment") == "Neutral" else 2
     ))
 
-    for idx, story in enumerate(filtered[:6]):  # limit for demo
+    for idx, story in enumerate(filtered[:8]):
         sentiment = story.get("sentiment", "Neutral")
         text_c, bg_c = sentiment_color(sentiment)
         oma_text = ", ".join(story.get("oma", ["Unmapped"]))
-        impact = 88 if sentiment == "Negative" else 60
+        conf_pct = int((story.get("sentiment_confidence", 0.5)) * 100)
 
         st.markdown(f"""
             <div class="gp-story">
@@ -453,11 +433,11 @@ with left:
                 <div class="gp-headline">{story.get('headline', '')}</div>
                 <div class="gp-oma">{oma_text}</div>
                 <div style="display:flex; align-items:center; margin-top:10px; font-size:11px;">
-                    <span style="color:#6B7280; margin-right:8px;">IMPACT</span>
+                    <span style="color:#6B7280; margin-right:8px;">CONFIDENCE</span>
                     <div style="flex:1; height:5px; background:#E5E7EB; border-radius:3px; overflow:hidden;">
-                        <div style="width:{impact}%; height:100%; background:#1E5AA8;"></div>
+                        <div style="width:{conf_pct}%; height:100%; background:#1E5AA8;"></div>
                     </div>
-                    <span style="margin-left:8px; font-weight:600; color:#111827;">{impact}%</span>
+                    <span style="margin-left:8px; font-weight:600; color:#111827;">{conf_pct}%</span>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -470,7 +450,6 @@ with left:
 
 # ---------- RIGHT: Response Desk + Monitoring ----------
 with right:
-    # Crisis Alert
     neg_by_oma = {}
     for s in stories:
         if s.get("sentiment") == "Negative":
@@ -491,7 +470,6 @@ with right:
             </div>
         """, unsafe_allow_html=True)
 
-    # Response Desk
     st.markdown(
         "<div class='gp-panel-title'>✍️ Strategic Response Draft</div>"
         "<div class='gp-panel-sub'>Suggested response based on institutional precedent</div>",
@@ -527,6 +505,28 @@ with right:
             </div>
         """, unsafe_allow_html=True)
 
+        # Precedent viewer
+        if r.get("precedents"):
+            with st.expander("📄 View Precedent Statements"):
+                for p in r["precedents"]:
+                    st.markdown(
+                        f"<div style='color:#111827; font-weight:600; "
+                        f"font-size:13px; margin-bottom:6px;'>"
+                        f"{p['filename']}</div>",
+                        unsafe_allow_html=True,
+                    )
+                    content = p["content"]
+                    display = content[:800] + ("..." if len(content) > 800 else "")
+                    st.markdown(
+                        f"<div style='color:#374151; font-size:12px; "
+                        f"line-height:1.5; white-space:pre-wrap; "
+                        f"background:#F9FAFB; padding:12px; "
+                        f"border-radius:6px;'>{display}</div>",
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown("<div style='height:8px;'></div>",
+                                unsafe_allow_html=True)
+
         key = selected["headline"]
         approved = key in st.session_state.approvals
         bc1, bc2, bc3 = st.columns(3)
@@ -544,7 +544,6 @@ with right:
         if approved:
             st.success(f"Approved at {st.session_state.approvals[key]['approved_at'][:19]}")
 
-    # Monitoring Channels
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(
         "<div class='gp-panel-title'>📡 Active Monitoring Channels</div>",
@@ -578,20 +577,16 @@ st.markdown(
 
 if stories:
     rows = []
-    for s in stories[:10]:
+    for i, s in enumerate(stories[:10]):
         rows.append({
-            "Source":      s.get("source", ""),
-            "Media Headline": s.get("headline", ""),
-            "Region":      "NA",
-            "Sentiment":   s.get("sentiment", "Neutral"),
-            "Reach":       f"{(idx+1)*2}.{(idx*3) % 10}M",
+            "Source":          s.get("source", ""),
+            "Media Headline":  s.get("headline", ""),
+            "Region":          "NA",
+            "Sentiment":       s.get("sentiment", "Neutral"),
+            "Reach":           f"{(i+1)*2}.{(i*3) % 10}M",
         })
     df = pd.DataFrame(rows)
-    st.dataframe(
-        df,
-        use_container_width=True,
-        hide_index=True,
-    )
+    st.dataframe(df, use_container_width=True, hide_index=True)
 
 
 # ------------------------------------------------------------------
