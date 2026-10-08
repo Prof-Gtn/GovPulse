@@ -109,14 +109,79 @@ def extract_entities(text):
 
     return entities
 
+def extract_government_source(text, entities):
+    """
+    Try to identify the government official or source quoted in the story.
+    Uses keyword patterns and detected person names.
+    Returns a string like 'Hon. Emma Theofelus, Minister of ICT' or ''.
+    """
+    if not text:
+        return ""
+
+    text_lower = text.lower()
+
+    # Government role keywords — if we see these, we look for a nearby name
+    role_keywords = [
+        "minister", "deputy minister", "president", "vice president",
+        "prime minister", "executive director", "spokesperson",
+        "spokesman", "spokeswoman", "ceo", "chief executive",
+        "governor", "councillor", "mayor", "chairperson",
+        "permanent secretary", "director", "commissioner",
+        "ombudsman", "auditor-general", "attorney-general"
+    ]
+
+    # Find sentences that mention a government role
+    sentences = text.split(". ")
+    candidate_sources = []
+
+    for sentence in sentences:
+        sentence_lower = sentence.lower()
+        for role in role_keywords:
+            if role in sentence_lower:
+                candidate_sources.append((sentence, role))
+                break
+
+    if not candidate_sources:
+        return ""
+
+    # Take the first candidate and try to find a person name inside it
+    for sentence, role in candidate_sources:
+        # Look for a detected person in this sentence
+        for person in entities.get("people", []):
+            if person in sentence:
+                # Try to find the role title near the person
+                role_start = sentence.lower().find(role)
+                return f"{person}, {role.title()}"
+
+    # If no person matched, return the first role keyword found
+    first_sentence, first_role = candidate_sources[0]
+    return f"Source quoted: {first_role.title()} (unnamed)"
+
+    return ""
+
+
+def detect_page_number(source, url):
+    """
+    Web articles don't have page numbers. Return 'Online' for web sources.
+    For print sources, return the page number if we knew it.
+    """
+    if source and "Online" in source:
+        return "Online"
+    return "Online"  # Default for all web sources
 
 def analyze_story(story):
-    """Enrich one story with sentiment, summary, and entities."""
+    """Enrich one story with sentiment, summary, entities."""
     text = story.get("body", "") or story.get("headline", "")
 
     story["sentiment"] = classify_sentiment(text)
     story["ai_summary"] = summarize(text)
     story["entities"] = extract_entities(text)
+
+    # NEW: extract government source
+    story["government_source"] = extract_government_source(text, story["entities"])
+
+    # NEW: set page number (Online for web sources)
+    story["page"] = detect_page_number(story.get("source", ""), story.get("url", ""))
 
     return story
 
