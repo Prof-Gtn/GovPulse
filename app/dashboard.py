@@ -160,7 +160,6 @@ st.markdown(
             cursor: not-allowed !important;
         }
 
-        /* Expander header — readable in both themes */
         details summary,
         details summary * {
             color: #111827 !important;
@@ -590,22 +589,36 @@ if stories:
 
 
 # ------------------------------------------------------------------
-# DAILY BRIEF + FOOTER
+# DAILY BRIEF — DUAL DOWNLOAD (Excel + PDF)
 # ------------------------------------------------------------------
 st.markdown("<br>", unsafe_allow_html=True)
-bcol1, bcol2 = st.columns([1, 4])
+bcol1, bcol2, bcol3 = st.columns([1, 1, 3])
+
 with bcol1:
-    brief_path = "data/processed/daily_brief.xlsx"
-    if os.path.exists(brief_path):
-        with open(brief_path, "rb") as f:
+    xlsx_path = "data/processed/daily_brief.xlsx"
+    if os.path.exists(xlsx_path):
+        with open(xlsx_path, "rb") as f:
             st.download_button(
-                label="⬇️ Download Daily Brief",
+                label="⬇️ Download Excel",
                 data=f.read(),
                 file_name=f"daily_brief_{datetime.now().strftime('%Y%m%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
+
 with bcol2:
+    pdf_path = "data/processed/daily_brief.pdf"
+    if os.path.exists(pdf_path):
+        with open(pdf_path, "rb") as f:
+            st.download_button(
+                label="⬇️ Download PDF",
+                data=f.read(),
+                file_name=f"daily_brief_{datetime.now().strftime('%Y%m%d')}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+
+with bcol3:
     approved_count = len(st.session_state.approvals)
     drafts_ok = sum(1 for r in st.session_state.responses
                     if r.get("response", {}).get("status") == "ok")

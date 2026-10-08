@@ -13,6 +13,15 @@ import sys
 import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.units import cm
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+)
+from reportlab.lib.enums import TA_LEFT, TA_CENTER
+
 
 SENTIMENT_COLORS = {
     "Positive": "C6EFCE",
@@ -184,6 +193,192 @@ def generate_report(input_file="data/processed/mapped.json",
     mapped = sum(1 for s in stories if s.get("oma") and s["oma"] != ["Unmapped"])
     print(f"\nMapped stories: {mapped}/{len(stories)}")
 
+def generate_pdf(input_file="data/processed/mapped.json",
+                 output_file="data/processed/daily_brief.pdf"):
+    """Generate the daily brief as a PDF."""
+    print(f"Loading stories from {input_file}...")
+    stories = load_stories(input_file)
+    print(f"Generating PDF brief for {len(stories)} stories...")
+
+    doc = SimpleDocTemplate(
+        output_file,
+        pagesize=landscape(A4),
+        leftMargin=1.2 * cm,
+        rightMargin=1.2 * cm,
+        topMargin=1.2 * cm,
+        bottomMargin=1.2 * cm,
+        title="Government Media Monitoring and Analysis Daily Brief",
+        author="GovPulse — Team Binary",
+    )
+
+    styles = getSampleStyleSheet()
+
+    # Custom styles
+    title_style = ParagraphStyle(
+        "GpTitle",
+        parent=styles["Heading1"],
+        fontSize=14,
+        textColor=colors.HexColor("#FFFFFF"),
+        alignment=TA_CENTER,
+        spaceAfter=0,
+    )
+    date_style = ParagraphStyle(
+        "GpDate",
+        parent=styles["Normal"],
+        fontSize=11,
+        alignment=TA_CENTER,
+        spaceAfter=8,
+    )
+    header_style = ParagraphStyle(
+        "GpHeader",
+        parent=styles["Normal"],
+        fontSize=8,
+        textColor=colors.HexColor("#FFFFFF"),
+        alignment=TA_CENTER,
+        leading=10,
+    )
+    cell_style = ParagraphStyle(
+        "GpCell",
+        parent=styles["Normal"],
+        fontSize=7.5,
+        leading=9,
+    )
+    footer_style = ParagraphStyle(
+        "GpFooter",
+        parent=styles["Normal"],
+        fontSize=9,
+        alignment=TA_LEFT,
+        leading=11,
+    )
+    notes_style = ParagraphStyle(
+        "GpNotes",
+        parent=styles["Normal"],
+        fontSize=8,
+        alignment=TA_LEFT,
+        leading=10,
+        textColor=colors.HexColor("#555555"),
+    )
+
+    elements = []
+
+    # ---------------- Title bar ----------------
+    title_table = Table(
+        [[Paragraph("GOVERNMENT MEDIA MONITORING AND ANALYSIS DAILY BRIEF", title_style)]],
+        colWidths=[doc.width],
+    )
+    title_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#1F3864")),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    elements.append(title_table)
+
+    # Date
+    date_text = f"DATE: {datetime.now().strftime('%A, %d %B %Y').upper()}"
+    elements.append(Paragraph(date_text, date_style))
+    elements.append(Spacer(1, 0.3 * cm))
+
+    # ---------------- Data table ----------------
+    headers = [
+        "Newspaper", "Page", "Headline", "Brief Summary",
+        "Government Source Quoted", "Sentiment", "O/M/A", "Comment"
+    ]
+    header_row = [Paragraph(h, header_style) for h in headers]
+
+    rows = [header_row]
+
+    for story in stories:
+        sentiment = story.get("sentiment", "Neutral")
+
+        row = [
+            Paragraph(story.get("source", ""), cell_style),
+            Paragraph(story.get("page", "Online"), cell_style),
+            Paragraph(story.get("headline", ""), cell_style),
+            Paragraph(story.get("ai_summary", ""), cell_style),
+            Paragraph(story.get("government_source", "None") or "None", cell_style),
+            Paragraph(sentiment, cell_style),
+            Paragraph(format_oma(story.get("oma", [])), cell_style),
+            Paragraph(story.get("comment", "None") or "None", cell_style),
+        ]
+        rows.append(row)
+
+    # Column widths — sum should be ~doc.width
+    col_widths = [
+        2.3 * cm,  # Newspaper
+        1.2 * cm,  # Page
+        4.5 * cm,  # Headline
+        6.5 * cm,  # Summary
+        4.0 * cm,  # Source
+        1.8 * cm,  # Sentiment
+        4.5 * cm,  # O/M/A
+        2.5 * cm,  # Comment
+    ]
+
+    table = Table(rows, colWidths=col_widths, repeatRows=1)
+
+    # Table styling
+    style = TableStyle([
+        # Header
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4472C4")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        # Grid
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#B0B7C3")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+    ])
+
+    # Colour-code sentiment cells (column 5)
+    for i, story in enumerate(stories, start=1):
+        sentiment = story.get("sentiment", "Neutral")
+        if sentiment == "Positive":
+            style.add("BACKGROUND", (5, i), (5, i), colors.HexColor("#C6EFCE"))
+            style.add("TEXTCOLOR", (5, i), (5, i), colors.HexColor("#006100"))
+        elif sentiment == "Negative":
+            style.add("BACKGROUND", (5, i), (5, i), colors.HexColor("#FFC7CE"))
+            style.add("TEXTCOLOR", (5, i), (5, i), colors.HexColor("#9C0006"))
+        else:
+            style.add("BACKGROUND", (5, i), (5, i), colors.HexColor("#F3F4F6"))
+
+    table.setStyle(style)
+    elements.append(table)
+    elements.append(Spacer(1, 0.5 * cm))
+
+    # ---------------- Footer ----------------
+    footer_text = (
+        "Kindly review the communication recommendations above and inform "
+        "the MICT of any responses or actions taken by the institution to "
+        "counter negative coverage."
+    )
+    elements.append(Paragraph(footer_text, footer_style))
+    elements.append(Spacer(1, 0.3 * cm))
+
+    notes_text = (
+        "<b>NOTES:</b> Highlight in red: Story is negative | "
+        "Highlight in green: Story is positive | "
+        "Highlight in black: Story is neutral"
+    )
+    elements.append(Paragraph(notes_text, notes_style))
+    elements.append(Spacer(1, 0.3 * cm))
+
+    credit_text = (
+        f"Generated by GovPulse — Government Media Intelligence Platform "
+        f"| {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    )
+    elements.append(Paragraph(credit_text, notes_style))
+
+    doc.build(elements)
+
+    print(f"\n[OK] PDF daily brief saved -> {output_file}")
+
+
+def generate_all(input_file="data/processed/mapped.json"):
+    """Generate both Excel and PDF daily briefs."""
+    generate_report(input_file, "data/processed/daily_brief.xlsx")
+    generate_pdf(input_file, "data/processed/daily_brief.pdf")
 
 if __name__ == "__main__":
-    generate_report()
+    generate_all()
