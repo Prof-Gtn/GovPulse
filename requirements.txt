@@ -1,0 +1,12 @@
+requests
+beautifulsoup4
+lxml
+spacy
+vaderSentiment
+sumy
+pandas
+openpyxl
+streamlit
+python-dotenv
+groq
+nltk

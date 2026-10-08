@@ -1,0 +1,19 @@
+# Virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Data files
+data/raw/*.json
+data/processed/*.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
