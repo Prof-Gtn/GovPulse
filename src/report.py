@@ -36,9 +36,43 @@ SENTIMENT_TEXT_COLORS = {
 }
 
 
-def load_stories(input_file="data/processed/mapped.json"):
+def load_stories(input_file="data/processed/mapped.json",
+                 approvals_file="data/processed/approvals.json"):
+    """Load mapped stories and enrich each with its approved response (if any)."""
     with open(input_file, "r", encoding="utf-8-sig") as f:
-        return json.load(f)
+        stories = json.load(f)
+
+    # Load approvals (silently skip if missing)
+    approvals = {}
+    if os.path.exists(approvals_file):
+        try:
+            with open(approvals_file, "r", encoding="utf-8-sig") as f:
+                approvals = json.load(f)
+        except Exception as e:
+            print(f"[WARN] Could not load approvals: {e}")
+
+    # Attach approved response text to matching stories
+    for story in stories:
+        headline = story.get("headline", "")
+        if headline in approvals:
+            approval = approvals[headline]
+            final_text = approval.get("final_text", "").strip()
+            approved_at = approval.get("approved_at", "")[:10]
+            ministry = approval.get("ministry", "")
+
+            # Truncate for the cell — keep it readable in Excel and PDF
+                        # Short, readable snippet for the Comment cell
+            snippet = final_text[:150] + ("..." if len(final_text) > 150 else "")
+
+            story["comment"] = (
+                f"✓ APPROVED {approved_at}\n"
+                f"{ministry}\n"
+                f"\"{snippet}\""
+            )
+        else:
+            story["comment"] = story.get("comment", "None") or "None"
+
+    return stories
 
 
 def format_oma(oma_list):
@@ -303,15 +337,15 @@ def generate_pdf(input_file="data/processed/mapped.json",
         rows.append(row)
 
     # Column widths — sum should be ~doc.width
-    col_widths = [
-        2.3 * cm,  # Newspaper
+        col_widths = [
+        2.0 * cm,  # Newspaper
         1.2 * cm,  # Page
         4.5 * cm,  # Headline
-        6.5 * cm,  # Summary
-        4.0 * cm,  # Source
+        6.0 * cm,  # Summary
+        3.5 * cm,  # Source
         1.8 * cm,  # Sentiment
-        4.5 * cm,  # O/M/A
-        2.5 * cm,  # Comment
+        4.0 * cm,  # O/M/A
+        4.5 * cm,  # Comment (widened)
     ]
 
     table = Table(rows, colWidths=col_widths, repeatRows=1)
