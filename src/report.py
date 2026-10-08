@@ -3,12 +3,16 @@ GovPulse — Daily Brief Generator
 Generates the MICT daily brief in Excel format.
 """
 
+from fileinput import filename
 import json
 import os
 from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 SENTIMENT_COLORS = {
     "Positive": "C6EFCE",
@@ -166,7 +170,7 @@ def generate_report(input_file="data/processed/mapped.json",
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     wb.save(output_file)
 
-    print(f"\n[OK] Daily brief saved → {output_file}")
+    print(f"\n[OK] Daily brief saved -> {output_file}")
 
     counts = {"Positive": 0, "Neutral": 0, "Negative": 0}
     for s in stories:

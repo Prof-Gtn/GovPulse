@@ -3,9 +3,13 @@ GovPulse — Government Entity Mapper
 Matches detected entities to Namibian government institutions.
 """
 
+from fileinput import filename
 import json
 import os
-
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 GOVERNMENT_TAXONOMY = {
     "Office of the President": ["Office of the President", "Presidency", "State House"],
@@ -245,7 +249,7 @@ def map_all(input_file="data/processed/analyzed.json",
     mapped_count = sum(1 for s in mapped if s["oma"] != ["Unmapped"])
     unmapped_count = len(mapped) - mapped_count
 
-    print(f"\n[OK] Saved {len(mapped)} mapped stories → {output_file}")
+    print(f"\n[OK] Saved {len(mapped)} mapped stories -> {output_file}")
     print(f"\nMapping results:")
     print(f"  Mapped:   {mapped_count}")
     print(f"  Unmapped: {unmapped_count}")

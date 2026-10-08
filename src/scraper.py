@@ -9,7 +9,10 @@ from datetime import datetime
 import json
 import os
 import time
-
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 HEADERS = {
     "User-Agent": (
@@ -94,7 +97,7 @@ def save_stories(stories, filename="data/raw/stories.json"):
 
     # Report on body text success
     with_body = sum(1 for s in stories if s.get("body"))
-    print(f"\n[OK] Saved {len(stories)} stories ({with_body} with full text) → {filename}")
+    print(f"\n[OK] Saved {len(stories)} stories ({with_body} with full text) -> {filename}")
 
 
 if __name__ == "__main__":

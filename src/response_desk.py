@@ -3,6 +3,7 @@ GovPulse — Response Desk
 Drafts government responses to negative coverage using historical precedent.
 """
 
+from fileinput import filename
 import json
 import os
 import re
@@ -10,7 +11,10 @@ import time
 from datetime import datetime
 from dotenv import load_dotenv
 from groq import Groq
-
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -202,7 +206,7 @@ def process_negative_stories(input_file="data/processed/mapped.json",
         json.dump(results, f, indent=2, ensure_ascii=False)
 
     success = sum(1 for r in results if r["response"]["status"] == "ok")
-    print(f"\n[OK] Saved {len(results)} response drafts → {output_file}")
+    print(f"\n[OK] Saved {len(results)} response drafts -> {output_file}")
     print(f"     Successful drafts: {success}/{len(results)}")
 
 

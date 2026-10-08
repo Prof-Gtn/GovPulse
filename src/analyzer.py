@@ -3,6 +3,7 @@ GovPulse — Analyzer
 Adds sentiment, summary, and entity detection to each story.
 """
 
+from fileinput import filename
 import json
 import os
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
@@ -10,6 +11,10 @@ from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 import spacy
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 
 # Load once (slow to load, fast to use)
@@ -209,7 +214,7 @@ def analyze_all(input_file="data/raw/stories.json",
     for s in analyzed:
         counts[s["sentiment"]] += 1
 
-    print(f"\n[OK] Saved {len(analyzed)} analyzed stories → {output_file}")
+    print(f"\n[OK] Saved {len(analyzed)} analyzed stories -> {output_file}")
     print(f"\nSentiment breakdown:")
     print(f"  Positive: {counts['Positive']}")
     print(f"  Neutral:  {counts['Neutral']}")
