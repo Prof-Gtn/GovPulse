@@ -95,8 +95,19 @@ def sentiment_color(s):
 st.markdown(
     """
     <style>
+        /* Theme colours (light = default; dark values are injected further down) */
+        :root {
+            --bg: #F5F6FA;
+            --card: #FFFFFF;
+            --text: #111827;
+            --body: #374151;
+            --muted: #6B7280;
+            --border: #E5E7EB;
+            --subtle: #F9FAFB;
+        }
+
         html, body, [class*="css"] { font-family: 'Segoe UI', Roboto, sans-serif; }
-        .stApp { background: #F5F6FA; }
+        .stApp { background: var(--bg); }
 
         /* ---------------- SIDEBAR ---------------- */
         section[data-testid="stSidebar"] { background: #0F2540; }
@@ -162,25 +173,48 @@ st.markdown(
 
         details summary,
         details summary * {
+            color: var(--text) !important;
+        }
+
+        /* ---------------- SEARCH BAR (always white, any theme) ---------------- */
+        div[data-testid="stTextInput"] div[data-baseweb="input"],
+        div[data-testid="stTextInput"] div[data-baseweb="base-input"] {
+            background: #FFFFFF !important;
+            border: 1px solid #E5E7EB !important;
+            border-radius: 8px !important;
+        }
+        div[data-testid="stTextInput"] input {
+            background: #FFFFFF !important;
             color: #111827 !important;
+            -webkit-text-fill-color: #111827 !important;
+            caret-color: #111827 !important;
+        }
+        div[data-testid="stTextInput"] input::placeholder {
+            color: #9CA3AF !important;
+            -webkit-text-fill-color: #9CA3AF !important;
+            opacity: 1 !important;
+        }
+        div[data-testid="stTextInput"] div[data-baseweb="input"]:focus-within {
+            border-color: #1E3A5F !important;
+            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.15) !important;
         }
 
         /* ---------------- METRIC CARDS ---------------- */
         .gp-metric {
-            background: white; border-radius: 10px; padding: 16px 18px;
+            background: var(--card); border-radius: 10px; padding: 17.3px 19.4px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             border-left: 4px solid #E5E7EB;
         }
         .gp-metric-label {
             font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
-            color: #6B7280; margin-bottom: 6px;
+            color: var(--muted); margin-bottom: 6px;
         }
-        .gp-metric-value { font-size: 28px; font-weight: 700; color: #111827; line-height: 1.1; }
+        .gp-metric-value { font-size: 28px; font-weight: 700; color: var(--text); line-height: 1.1; }
         .gp-metric-delta { font-size: 12px; color: #16A34A; margin-top: 4px; }
 
         /* ---------------- STORY CARDS ---------------- */
         .gp-story {
-            background: white; border-radius: 10px; padding: 14px 16px;
+            background: var(--card); border-radius: 10px; padding: 14px 16px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 10px;
         }
         .gp-badge {
@@ -189,11 +223,11 @@ st.markdown(
             letter-spacing: 0.5px;
         }
         .gp-headline {
-            font-size: 15px; font-weight: 600; color: #111827;
+            font-size: 15px; font-weight: 600; color: var(--text);
             margin: 8px 0 4px 0;
         }
         .gp-oma {
-            font-size: 11px; color: #6B7280; text-transform: uppercase;
+            font-size: 11px; color: var(--muted); text-transform: uppercase;
             letter-spacing: 0.4px;
         }
 
@@ -207,21 +241,22 @@ st.markdown(
 
         /* ---------------- RESPONSE PANEL ---------------- */
         .gp-response {
-            background: white; border-radius: 10px; padding: 16px;
+            background: var(--card); border-radius: 10px; padding: 16px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .gp-panel-title { font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 4px; }
-        .gp-panel-sub { font-size: 11px; color: #6B7280; margin-bottom: 12px; }
+        .gp-panel-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .gp-panel-sub { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
 
         /* ---------------- BANNER ---------------- */
         .gp-banner {
-            background: #0F2540; border-radius: 10px; padding: 24px 28px;
+            background: linear-gradient(90deg, #0F2540 0%, #1A3556 100%);
+            border-radius: 10px; padding: 24px 28px;
             color: white; margin-bottom: 20px;
         }
         .gp-banner h1 { color: white; font-size: 26px; margin: 0 0 6px 0; }
         .gp-banner p { color: #B0C0D8; font-size: 13px; margin: 0; }
 
-        .stDataFrame { background: white; border-radius: 10px; }
+        .stDataFrame { background: var(--card); border-radius: 10px; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -239,6 +274,41 @@ if "approvals" not in st.session_state:
     st.session_state.approvals = load_json(APPROVALS_FILE, default={})
 if "selected_story_headline" not in st.session_state:
     st.session_state.selected_story_headline = None
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = False
+
+
+# ------------------------------------------------------------------
+# DARK MODE OVERRIDE (only injected when the sidebar toggle is on)
+# ------------------------------------------------------------------
+if st.session_state.dark_mode:
+    st.markdown(
+        """
+        <style>
+            :root {
+                --bg: #0B1220;
+                --card: #121B2E;
+                --text: #E8EDF5;
+                --body: #E8EDF5;
+                --muted: #8A99B3;
+                --border: #223049;
+                --subtle: #0B1220;
+            }
+            header[data-testid="stHeader"] { background: transparent !important; }
+            [data-testid="stMain"] hr { border-color: var(--border) !important; }
+            [data-testid="stMain"] details { border-color: var(--border) !important; }
+            [data-testid="stMain"] [data-testid="stCaptionContainer"],
+            [data-testid="stMain"] [data-testid="stCaptionContainer"] p {
+                color: var(--muted) !important;
+            }
+            /* The table is drawn on a canvas, so tone it down to match the dark surface */
+            [data-testid="stDataFrame"], .stDataFrame {
+                filter: invert(0.92) hue-rotate(180deg);
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 # ------------------------------------------------------------------
@@ -265,6 +335,7 @@ with st.sidebar:
     st.button("🔔  Alerts", use_container_width=True)
     st.button("📄  Reports", use_container_width=True)
     st.button("⚙️  Settings", use_container_width=True)
+    st.toggle("🌙 Dark mode", key="dark_mode")
 
     st.divider()
     st.markdown("##### PIPELINE")
@@ -311,7 +382,7 @@ with top_l:
 with top_r:
     st.markdown(
         """
-        <div style="background:white; border-radius:8px; padding:10px 16px;
+        <div style="background:var(--card); border-radius:8px; padding:10px 16px;
                     text-align:right; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
             🔔 &nbsp; 👤
         </div>
@@ -389,9 +460,9 @@ left, right = st.columns([1.5, 1])
 # ---------- LEFT: Review Queue ----------
 with left:
     st.markdown(
-        "<div style='font-size:18px; font-weight:700; color:#111827; margin-bottom:4px;'>"
+        "<div style='font-size:18px; font-weight:700; color:var(--text); margin-bottom:4px;'>"
         "Review Queue</div>"
-        f"<div style='font-size:12px; color:#6B7280; margin-bottom:12px;'>"
+        f"<div style='font-size:12px; color:var(--muted); margin-bottom:12px;'>"
         f"{len(stories)} pending</div>",
         unsafe_allow_html=True,
     )
@@ -422,7 +493,7 @@ with left:
         conf_pct = int((story.get("sentiment_confidence", 0.5)) * 100)
 
         st.markdown(f"""
-            <div class="gp-story">
+            <div class="gp-story" style="border-left:4px solid {text_c};">
                 <span class="gp-badge" style="background:{bg_c}; color:{text_c};">
                     {sentiment.upper()}
                 </span>
@@ -432,11 +503,11 @@ with left:
                 <div class="gp-headline">{story.get('headline', '')}</div>
                 <div class="gp-oma">{oma_text}</div>
                 <div style="display:flex; align-items:center; margin-top:10px; font-size:11px;">
-                    <span style="color:#6B7280; margin-right:8px;">CONFIDENCE</span>
-                    <div style="flex:1; height:5px; background:#E5E7EB; border-radius:3px; overflow:hidden;">
+                    <span style="color:var(--muted); margin-right:8px;">CONFIDENCE</span>
+                    <div style="flex:1; height:5px; background:var(--border); border-radius:3px; overflow:hidden;">
                         <div style="width:{conf_pct}%; height:100%; background:#1E5AA8;"></div>
                     </div>
-                    <span style="margin-left:8px; font-weight:600; color:#111827;">{conf_pct}%</span>
+                    <span style="margin-left:8px; font-weight:600; color:var(--text);">{conf_pct}%</span>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -494,8 +565,8 @@ with right:
         r = selected["response"]
         st.markdown(f"""
             <div class="gp-response">
-                <div style="font-size:11px; color:#6B7280;">For: <b>{r.get('ministry', 'Unknown')}</b></div>
-                <div style="font-size:13px; color:#374151; margin-top:10px; line-height:1.5;">
+                <div style="font-size:11px; color:var(--muted);">For: <b>{r.get('ministry', 'Unknown')}</b></div>
+                <div style="font-size:13px; color:var(--body); margin-top:10px; line-height:1.5;">
                     {r['draft']}
                 </div>
                 <div style="font-size:10px; color:#9CA3AF; margin-top:10px;">
@@ -509,7 +580,7 @@ with right:
             with st.expander("📄 View Precedent Statements"):
                 for p in r["precedents"]:
                     st.markdown(
-                        f"<div style='color:#111827; font-weight:600; "
+                        f"<div style='color:var(--text); font-weight:600; "
                         f"font-size:13px; margin-bottom:6px;'>"
                         f"{p['filename']}</div>",
                         unsafe_allow_html=True,
@@ -517,9 +588,9 @@ with right:
                     content = p["content"]
                     display = content[:800] + ("..." if len(content) > 800 else "")
                     st.markdown(
-                        f"<div style='color:#374151; font-size:12px; "
+                        f"<div style='color:var(--body); font-size:12px; "
                         f"line-height:1.5; white-space:pre-wrap; "
-                        f"background:#F9FAFB; padding:12px; "
+                        f"background:var(--subtle); padding:12px; "
                         f"border-radius:6px;'>{display}</div>",
                         unsafe_allow_html=True,
                     )
@@ -567,9 +638,9 @@ with right:
 # ------------------------------------------------------------------
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown(
-    "<div style='font-size:18px; font-weight:700; color:#111827; margin-bottom:4px;'>"
+    "<div style='font-size:18px; font-weight:700; color:var(--text); margin-bottom:4px;'>"
     "Recent National Coverage</div>"
-    "<div style='font-size:12px; color:#6B7280; margin-bottom:12px;'>"
+    "<div style='font-size:12px; color:var(--muted); margin-bottom:12px;'>"
     "Latest media mentions across monitored sources</div>",
     unsafe_allow_html=True,
 )
