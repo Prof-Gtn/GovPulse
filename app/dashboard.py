@@ -95,7 +95,6 @@ def sentiment_color(s):
 st.markdown(
     """
     <style>
-        /* Theme colours (light = default; dark values are injected further down) */
         :root {
             --bg: #F5F6FA;
             --card: #FFFFFF;
@@ -176,7 +175,7 @@ st.markdown(
             color: var(--text) !important;
         }
 
-        /* ---------------- SEARCH BAR (always white, any theme) ---------------- */
+        /* ---------------- SEARCH BAR ---------------- */
         div[data-testid="stTextInput"] div[data-baseweb="input"],
         div[data-testid="stTextInput"] div[data-baseweb="base-input"] {
             background: #FFFFFF !important;
@@ -264,22 +263,22 @@ st.markdown(
 
 
 # ------------------------------------------------------------------
-# SESSION STATE
+# SESSION STATE (always reload from disk)
 # ------------------------------------------------------------------
-if "mapped" not in st.session_state:
-    st.session_state.mapped = load_json(MAPPED_FILE)
-if "responses" not in st.session_state:
-    st.session_state.responses = load_json(RESPONSES_FILE)
-if "approvals" not in st.session_state:
-    st.session_state.approvals = load_json(APPROVALS_FILE, default={})
+st.session_state.mapped = load_json(MAPPED_FILE)
+st.session_state.responses = load_json(RESPONSES_FILE)
+st.session_state.approvals = load_json(APPROVALS_FILE, default={})
+
 if "selected_story_headline" not in st.session_state:
     st.session_state.selected_story_headline = None
 if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
+if "quick_filter" not in st.session_state:
+    st.session_state.quick_filter = "All"
 
 
 # ------------------------------------------------------------------
-# DARK MODE OVERRIDE (only injected when the sidebar toggle is on)
+# DARK MODE OVERRIDE
 # ------------------------------------------------------------------
 if st.session_state.dark_mode:
     st.markdown(
@@ -300,10 +299,6 @@ if st.session_state.dark_mode:
             [data-testid="stMain"] [data-testid="stCaptionContainer"],
             [data-testid="stMain"] [data-testid="stCaptionContainer"] p {
                 color: var(--muted) !important;
-            }
-            /* The table is drawn on a canvas, so tone it down to match the dark surface */
-            [data-testid="stDataFrame"], .stDataFrame {
-                filter: invert(0.92) hue-rotate(180deg);
             }
         </style>
         """,
@@ -341,13 +336,12 @@ with st.sidebar:
     st.markdown("##### PIPELINE")
     if st.button("🔄  Run Full Pipeline", use_container_width=True):
         if run_pipeline():
-            st.session_state.mapped = load_json(MAPPED_FILE)
-            st.session_state.responses = load_json(RESPONSES_FILE)
             st.rerun()
 
     if st.button("📄  Regenerate Brief", use_container_width=True):
         subprocess.run([sys.executable, "src/report.py"], check=False)
         st.success("Brief regenerated.")
+        st.rerun()
 
     st.divider()
     st.markdown("##### FILTERS")
@@ -356,11 +350,19 @@ with st.sidebar:
         options=sorted({s.get("source", "Unknown") for s in st.session_state.mapped}),
         default=[],
     )
-    sentiment_filter = st.multiselect(
-        "Sentiment",
-        options=["Positive", "Neutral", "Negative"],
-        default=[],
-    )
+
+    st.markdown("**Sentiment**")
+    pos_on = st.checkbox("🟢 Positive", value=True, key="filter_pos")
+    neu_on = st.checkbox("⚫ Neutral", value=True, key="filter_neu")
+    neg_on = st.checkbox("🔴 Negative", value=True, key="filter_neg")
+
+    sentiment_filter = []
+    if pos_on:
+        sentiment_filter.append("Positive")
+    if neu_on:
+        sentiment_filter.append("Neutral")
+    if neg_on:
+        sentiment_filter.append("Negative")
 
     st.divider()
     st.caption(f"Loaded: {len(st.session_state.mapped)} stories")
@@ -370,7 +372,7 @@ with st.sidebar:
 
 
 # ------------------------------------------------------------------
-# TOP BAR (functional search)
+# TOP BAR
 # ------------------------------------------------------------------
 top_l, top_r = st.columns([6, 1])
 with top_l:
@@ -459,19 +461,46 @@ left, right = st.columns([1.5, 1])
 
 # ---------- LEFT: Review Queue ----------
 with left:
+    # Quick filter row
+    qf_label_col, qf_all_col, qf_neg_col, qf_neu_col, qf_pos_col = st.columns([2, 1, 1, 1, 1])
+
+    with qf_label_col:
+        st.markdown(
+            "<div style='font-size:18px; font-weight:700; color:var(--text); padding-top:6px;'>"
+            "Review Queue</div>",
+            unsafe_allow_html=True,
+        )
+    with qf_all_col:
+        if st.button("All", key="qf_all", use_container_width=True):
+            st.session_state.quick_filter = "All"
+            st.rerun()
+    with qf_neg_col:
+        if st.button("🔴 Neg", key="qf_neg", use_container_width=True):
+            st.session_state.quick_filter = "Negative"
+            st.rerun()
+    with qf_neu_col:
+        if st.button("⚫ Neu", key="qf_neu", use_container_width=True):
+            st.session_state.quick_filter = "Neutral"
+            st.rerun()
+    with qf_pos_col:
+        if st.button("🟢 Pos", key="qf_pos", use_container_width=True):
+            st.session_state.quick_filter = "Positive"
+            st.rerun()
+
     st.markdown(
-        "<div style='font-size:18px; font-weight:700; color:var(--text); margin-bottom:4px;'>"
-        "Review Queue</div>"
         f"<div style='font-size:12px; color:var(--muted); margin-bottom:12px;'>"
-        f"{len(stories)} pending</div>",
+        f"{len(stories)} pending · showing: {st.session_state.quick_filter}</div>",
         unsafe_allow_html=True,
     )
 
+    # Filtering logic
     filtered = stories
     if source_filter:
         filtered = [s for s in filtered if s.get("source") in source_filter]
-    if sentiment_filter:
+    if sentiment_filter and len(sentiment_filter) < 3:
         filtered = [s for s in filtered if s.get("sentiment") in sentiment_filter]
+    if st.session_state.quick_filter != "All":
+        filtered = [s for s in filtered if s.get("sentiment") == st.session_state.quick_filter]
     if search_query:
         q = search_query.lower()
         filtered = [
@@ -485,6 +514,9 @@ with left:
         0 if s.get("sentiment") == "Negative" else
         1 if s.get("sentiment") == "Neutral" else 2
     ))
+
+    if not filtered:
+        st.info("No stories match the current filters.")
 
     for idx, story in enumerate(filtered[:8]):
         sentiment = story.get("sentiment", "Neutral")
@@ -575,7 +607,6 @@ with right:
             </div>
         """, unsafe_allow_html=True)
 
-        # Precedent viewer
         if r.get("precedents"):
             with st.expander("📄 View Precedent Statements"):
                 for p in r["precedents"]:
@@ -660,7 +691,7 @@ if stories:
 
 
 # ------------------------------------------------------------------
-# DAILY BRIEF — DUAL DOWNLOAD (Excel + PDF)
+# DAILY BRIEF — DUAL DOWNLOAD
 # ------------------------------------------------------------------
 st.markdown("<br>", unsafe_allow_html=True)
 bcol1, bcol2, bcol3 = st.columns([1, 1, 3])
