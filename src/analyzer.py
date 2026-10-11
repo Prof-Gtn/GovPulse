@@ -5,6 +5,7 @@ Adds sentiment, summary, and entity detection to each story.
 
 import json
 import os
+import re
 import sys
 import io
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
@@ -32,12 +33,12 @@ def classify_sentiment(text):
     scores = sentiment_analyzer.polarity_scores(text)
     compound = scores["compound"]
 
-    # Wider neutral band for news content:
-    # compound must be > 0.5 to be Positive or < -0.5 to be Negative.
-    # Government news is often factual, so a wider neutral zone is realistic.
-    if compound >= 0.5:
+    # Wider neutral band for news content.
+    # 0.6 is stricter than VADER's default 0.05, which helps avoid
+    # misclassifying factual political stories as positive/negative.
+    if compound >= 0.6:
         return "Positive"
-    elif compound <= -0.5:
+    elif compound <= -0.6:
         return "Negative"
     else:
         return "Neutral"
@@ -115,39 +116,64 @@ def extract_entities(text):
 
 
 def extract_government_source(text, entities):
-    """Try to identify the government official or source quoted."""
+    """
+    Extract the government source quoted — ONLY when a strong
+    attribution pattern is present.
+
+    Returns 'Name, Role' or '' if uncertain.
+    """
     if not text:
+        return ""
+
+    people = entities.get("people", []) if entities else []
+    if not people:
         return ""
 
     role_keywords = [
         "minister", "deputy minister", "president", "vice president",
         "prime minister", "executive director", "spokesperson",
-        "spokesman", "spokeswoman", "ceo", "chief executive",
-        "governor", "councillor", "mayor", "chairperson",
-        "permanent secretary", "director", "commissioner",
-        "ombudsman", "auditor-general", "attorney-general"
+        "spokesman", "spokeswoman", "chief executive",
+        "governor", "mayor", "chairperson", "permanent secretary",
+        "commissioner", "ombudsman", "auditor-general", "attorney-general",
     ]
 
-    sentences = text.split(". ")
-    candidate_sources = []
+    # Only the first 5 detected people
+    for person in people[:5]:
+        # Find where this person is mentioned
+        idx = text.find(person)
+        if idx == -1:
+            continue
 
-    for sentence in sentences:
-        sentence_lower = sentence.lower()
+        # Examine a window around the mention
+        window = text[max(0, idx - 120): idx + 260]
+        window_lower = window.lower()
+
+        # Require a government-role keyword near the name
+        matched_role = None
         for role in role_keywords:
-            if role in sentence_lower:
-                candidate_sources.append((sentence, role))
+            if role in window_lower:
+                matched_role = role
                 break
 
-    if not candidate_sources:
-        return ""
+        if not matched_role:
+            continue
 
-    for sentence, role in candidate_sources:
-        for person in entities.get("people", []):
-            if person in sentence:
-                return f"{person}, {role.title()}"
+        # Require an attribution pattern
+        attribution_patterns = [
+            r"said\s+" + re.escape(person),
+            re.escape(person) + r"\s+said",
+            r"according to\s+" + re.escape(person),
+            re.escape(person) + r"\s+told",
+            re.escape(person) + r"\s+explained",
+            re.escape(person) + r"\s+noted",
+            re.escape(person) + r",\s+(?:the\s+)?(?:minister|president|director|spokesperson|governor|mayor|commissioner|chief executive|deputy minister|executive director)",
+        ]
 
-    first_sentence, first_role = candidate_sources[0]
-    return f"Source quoted: {first_role.title()} (unnamed)"
+        if any(re.search(p, window, re.IGNORECASE) for p in attribution_patterns):
+            # Use clean title case
+            return f"{person}, {matched_role.title()}"
+
+    return ""
 
 
 def detect_page_number(source, url):
@@ -202,6 +228,7 @@ def analyze_all(input_file="data/raw/stories.json",
         print(f"\n  Headline:  {s['headline']}")
         print(f"  Sentiment: {s['sentiment']} (confidence: {s['sentiment_confidence']})")
         print(f"  Summary:   {s['ai_summary'][:150]}...")
+        print(f"  Source:    {s['government_source']}")
         print(f"  People:    {s['entities']['people'][:5]}")
         print(f"  Orgs:      {s['entities']['organizations'][:5]}")
 

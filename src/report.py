@@ -1,26 +1,29 @@
 """
 GovPulse — Daily Brief Generator
-Generates the MICT daily brief in Excel format.
+Generates the MICT daily brief in Excel and PDF format.
 """
 
-from fileinput import filename
 import json
 import os
-from datetime import datetime
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import sys
 import io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+from datetime import datetime
+
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import cm
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 )
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
+
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 
 SENTIMENT_COLORS = {
@@ -37,10 +40,22 @@ SENTIMENT_TEXT_COLORS = {
 
 
 def load_stories(input_file="data/processed/mapped.json",
-                 approvals_file="data/processed/approvals.json"):
-    """Load mapped stories and enrich each with its approved response (if any)."""
+                 approvals_file="data/processed/approvals.json",
+                 exclude_unmapped=True):
+    """Load mapped stories and enrich each with its approved response (if any).
+
+    By default, unmapped stories are excluded — the brief only covers
+    stories that touch a government institution, matching MICT's format.
+    """
     with open(input_file, "r", encoding="utf-8-sig") as f:
         stories = json.load(f)
+
+    # Exclude unmapped stories from the brief
+    if exclude_unmapped:
+        stories = [
+            s for s in stories
+            if s.get("oma") and s["oma"] != ["Unmapped"]
+        ]
 
     # Load approvals (silently skip if missing)
     approvals = {}
@@ -51,24 +66,15 @@ def load_stories(input_file="data/processed/mapped.json",
         except Exception as e:
             print(f"[WARN] Could not load approvals: {e}")
 
-    # Attach approved response text to matching stories
+    # Attach a short approval marker to matching stories
     for story in stories:
         headline = story.get("headline", "")
         if headline in approvals:
             approval = approvals[headline]
-            final_text = approval.get("final_text", "").strip()
             approved_at = approval.get("approved_at", "")[:10]
             ministry = approval.get("ministry", "")
-
-            # Truncate for the cell — keep it readable in Excel and PDF
-                        # Short, readable snippet for the Comment cell
-            snippet = final_text[:150] + ("..." if len(final_text) > 150 else "")
-
-            story["comment"] = (
-                f"✓ APPROVED {approved_at}\n"
-                f"{ministry}\n"
-                f"\"{snippet}\""
-            )
+            final_text = approval.get("final_text", "")
+            story["comment"] = f"✓ {approved_at} — {ministry}:\n\"{final_text}\""
         else:
             story["comment"] = story.get("comment", "None") or "None"
 
@@ -81,6 +87,9 @@ def format_oma(oma_list):
     return "; ".join(oma_list)
 
 
+# ------------------------------------------------------------------
+# EXCEL
+# ------------------------------------------------------------------
 def build_workbook(stories):
     wb = Workbook()
     ws = wb.active
@@ -227,6 +236,10 @@ def generate_report(input_file="data/processed/mapped.json",
     mapped = sum(1 for s in stories if s.get("oma") and s["oma"] != ["Unmapped"])
     print(f"\nMapped stories: {mapped}/{len(stories)}")
 
+
+# ------------------------------------------------------------------
+# PDF
+# ------------------------------------------------------------------
 def generate_pdf(input_file="data/processed/mapped.json",
                  output_file="data/processed/daily_brief.pdf"):
     """Generate the daily brief as a PDF."""
@@ -247,55 +260,33 @@ def generate_pdf(input_file="data/processed/mapped.json",
 
     styles = getSampleStyleSheet()
 
-    # Custom styles
     title_style = ParagraphStyle(
-        "GpTitle",
-        parent=styles["Heading1"],
-        fontSize=14,
-        textColor=colors.HexColor("#FFFFFF"),
-        alignment=TA_CENTER,
-        spaceAfter=0,
+        "GpTitle", parent=styles["Heading1"], fontSize=14,
+        textColor=colors.HexColor("#FFFFFF"), alignment=TA_CENTER, spaceAfter=0,
     )
     date_style = ParagraphStyle(
-        "GpDate",
-        parent=styles["Normal"],
-        fontSize=11,
-        alignment=TA_CENTER,
-        spaceAfter=8,
+        "GpDate", parent=styles["Normal"], fontSize=11,
+        alignment=TA_CENTER, spaceAfter=8,
     )
     header_style = ParagraphStyle(
-        "GpHeader",
-        parent=styles["Normal"],
-        fontSize=8,
-        textColor=colors.HexColor("#FFFFFF"),
-        alignment=TA_CENTER,
-        leading=10,
+        "GpHeader", parent=styles["Normal"], fontSize=8,
+        textColor=colors.HexColor("#FFFFFF"), alignment=TA_CENTER, leading=10,
     )
     cell_style = ParagraphStyle(
-        "GpCell",
-        parent=styles["Normal"],
-        fontSize=7.5,
-        leading=9,
+        "GpCell", parent=styles["Normal"], fontSize=7.5, leading=9,
     )
     footer_style = ParagraphStyle(
-        "GpFooter",
-        parent=styles["Normal"],
-        fontSize=9,
-        alignment=TA_LEFT,
-        leading=11,
+        "GpFooter", parent=styles["Normal"], fontSize=9,
+        alignment=TA_LEFT, leading=11,
     )
     notes_style = ParagraphStyle(
-        "GpNotes",
-        parent=styles["Normal"],
-        fontSize=8,
-        alignment=TA_LEFT,
-        leading=10,
-        textColor=colors.HexColor("#555555"),
+        "GpNotes", parent=styles["Normal"], fontSize=8,
+        alignment=TA_LEFT, leading=10, textColor=colors.HexColor("#555555"),
     )
 
     elements = []
 
-    # ---------------- Title bar ----------------
+    # Title bar
     title_table = Table(
         [[Paragraph("GOVERNMENT MEDIA MONITORING AND ANALYSIS DAILY BRIEF", title_style)]],
         colWidths=[doc.width],
@@ -307,23 +298,20 @@ def generate_pdf(input_file="data/processed/mapped.json",
     ]))
     elements.append(title_table)
 
-    # Date
     date_text = f"DATE: {datetime.now().strftime('%A, %d %B %Y').upper()}"
     elements.append(Paragraph(date_text, date_style))
     elements.append(Spacer(1, 0.3 * cm))
 
-    # ---------------- Data table ----------------
+    # Data table
     headers = [
         "Newspaper", "Page", "Headline", "Brief Summary",
         "Government Source Quoted", "Sentiment", "O/M/A", "Comment"
     ]
     header_row = [Paragraph(h, header_style) for h in headers]
-
     rows = [header_row]
 
     for story in stories:
         sentiment = story.get("sentiment", "Neutral")
-
         row = [
             Paragraph(story.get("source", ""), cell_style),
             Paragraph(story.get("page", "Online"), cell_style),
@@ -336,8 +324,7 @@ def generate_pdf(input_file="data/processed/mapped.json",
         ]
         rows.append(row)
 
-    # Column widths — sum should be ~doc.width
-        col_widths = [
+    col_widths = [
         2.0 * cm,  # Newspaper
         1.2 * cm,  # Page
         4.5 * cm,  # Headline
@@ -345,19 +332,16 @@ def generate_pdf(input_file="data/processed/mapped.json",
         3.5 * cm,  # Source
         1.8 * cm,  # Sentiment
         4.0 * cm,  # O/M/A
-        4.5 * cm,  # Comment (widened)
+        4.5 * cm,  # Comment
     ]
 
     table = Table(rows, colWidths=col_widths, repeatRows=1)
 
-    # Table styling
     style = TableStyle([
-        # Header
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4472C4")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        # Grid
         ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#B0B7C3")),
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
@@ -381,7 +365,7 @@ def generate_pdf(input_file="data/processed/mapped.json",
     elements.append(table)
     elements.append(Spacer(1, 0.5 * cm))
 
-    # ---------------- Footer ----------------
+    # Footer
     footer_text = (
         "Kindly review the communication recommendations above and inform "
         "the MICT of any responses or actions taken by the institution to "
@@ -413,6 +397,7 @@ def generate_all(input_file="data/processed/mapped.json"):
     """Generate both Excel and PDF daily briefs."""
     generate_report(input_file, "data/processed/daily_brief.xlsx")
     generate_pdf(input_file, "data/processed/daily_brief.pdf")
+
 
 if __name__ == "__main__":
     generate_all()

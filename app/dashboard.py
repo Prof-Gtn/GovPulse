@@ -1,6 +1,6 @@
 """
 GovPulse — Streamlit Dashboard
-Matches the Visily mockup: institutional, clean, government-ready.
+Institutional, clean, government-ready.
 """
 
 import json
@@ -29,6 +29,7 @@ st.set_page_config(
 MAPPED_FILE    = "data/processed/mapped.json"
 RESPONSES_FILE = "data/processed/responses.json"
 APPROVALS_FILE = "data/processed/approvals.json"
+UPLOADS_DIR    = "data/uploads"
 
 
 # ------------------------------------------------------------------
@@ -79,6 +80,27 @@ def run_pipeline():
     progress.progress(1.0, text="Pipeline complete.")
     st.success("Pipeline complete.")
     return True
+
+
+def run_downstream_stages():
+    """Run analyzer → mapper → report → response_desk."""
+    stages = [
+        "src/analyzer.py",
+        "src/mapper.py",
+        "src/report.py",
+        "src/response_desk.py",
+    ]
+    for script in stages:
+        r = subprocess.run(
+            [sys.executable, script],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if r.returncode != 0:
+            return False, script, r.stderr[:300]
+    return True, None, None
 
 
 def sentiment_color(s):
@@ -337,14 +359,14 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
+    # -------- NAVIGATION --------
     st.markdown("##### NAVIGATION")
     st.button("📊  Dashboard", use_container_width=True)
     st.button("📡  Monitoring", use_container_width=True)
-    st.button("🔔  Alerts", use_container_width=True)
-    st.button("📄  Reports", use_container_width=True)
     st.button("⚙️  Settings", use_container_width=True)
     st.toggle("🌙 Dark mode", key="dark_mode")
 
+    # -------- PIPELINE --------
     st.divider()
     st.markdown("##### PIPELINE")
     if st.button("🔄  Run Full Pipeline", use_container_width=True):
@@ -356,6 +378,49 @@ with st.sidebar:
         st.success("Brief regenerated.")
         st.rerun()
 
+    # -------- INGEST NEWSPAPER PDF --------
+    st.divider()
+    st.markdown("##### 📰 INGEST NEWSPAPER PDF")
+
+    uploaded_pdf = st.file_uploader(
+        "Upload newspaper PDF",
+        type=["pdf"],
+        key="pdf_up",
+        label_visibility="collapsed",
+    )
+    pdf_source = st.text_input(
+        "Source name",
+        value="Uploaded Newspaper",
+        key="pdf_src",
+    )
+
+    if uploaded_pdf and st.button("Process Newspaper PDF", use_container_width=True):
+        os.makedirs(UPLOADS_DIR, exist_ok=True)
+        path = os.path.join(UPLOADS_DIR, uploaded_pdf.name)
+        with open(path, "wb") as f:
+            f.write(uploaded_pdf.getbuffer())
+
+        with st.spinner("Extracting text from PDF..."):
+            r = subprocess.run(
+                [sys.executable, "src/pdf_ingest.py", path, pdf_source],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+
+        if r.returncode != 0:
+            st.error(f"PDF ingest failed: {r.stderr[:300]}")
+        else:
+            with st.spinner("Running analyzer, mapper, report, responses..."):
+                ok, script, err = run_downstream_stages()
+            if ok:
+                st.success("PDF ingested and pipeline updated.")
+                st.rerun()
+            else:
+                st.error(f"Failed at {script}: {err}")
+
+    # -------- FILTERS --------
     st.divider()
     st.markdown("##### FILTERS")
     source_filter = st.multiselect(
@@ -533,7 +598,6 @@ with left:
         sentiment = story.get("sentiment", "Neutral")
         text_c, bg_c = sentiment_color(sentiment)
         oma_text = ", ".join(story.get("oma", ["Unmapped"]))
-        conf_pct = int((story.get("sentiment_confidence", 0.5)) * 100)
 
         st.markdown(f"""
             <div class="gp-story" style="border-left:4px solid {text_c};">
@@ -541,17 +605,10 @@ with left:
                     {sentiment.upper()}
                 </span>
                 <span style="font-size:10px; color:#9CA3AF; margin-left:8px;">
-                    1h ago
+                    {story.get('source', '')}
                 </span>
                 <div class="gp-headline">{story.get('headline', '')}</div>
                 <div class="gp-oma">{oma_text}</div>
-                <div style="display:flex; align-items:center; margin-top:10px; font-size:11px;">
-                    <span style="color:var(--muted); margin-right:8px;">CONFIDENCE</span>
-                    <div style="flex:1; height:5px; background:var(--border); border-radius:3px; overflow:hidden;">
-                        <div style="width:{conf_pct}%; height:100%; background:#1E5AA8;"></div>
-                    </div>
-                    <span style="margin-left:8px; font-weight:600; color:var(--text);">{conf_pct}%</span>
-                </div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -675,7 +732,7 @@ with right:
                     st.markdown("<div style='height:8px;'></div>",
                                 unsafe_allow_html=True)
 
-        # ---------- ACTION BUTTONS (only in normal view) ----------
+        # ---------- ACTION BUTTONS ----------
         if not editing:
             bc1, bc2, bc3 = st.columns(3)
             if bc1.button("✅ Approve", use_container_width=True, disabled=approved):
@@ -686,7 +743,6 @@ with right:
                 }
                 save_json(st.session_state.approvals, APPROVALS_FILE)
 
-                # Auto-regenerate the daily brief so downloads are current
                 with st.spinner("Regenerating daily brief with approved response..."):
                     subprocess.run(
                         [sys.executable, "src/report.py"],
@@ -702,7 +758,6 @@ with right:
                 st.rerun()
 
             if bc3.button("❌ Reject", use_container_width=True, disabled=approved):
-                # Mark as rejected by removing approval if it existed, otherwise note
                 if key in st.session_state.approvals:
                     del st.session_state.approvals[key]
                     save_json(st.session_state.approvals, APPROVALS_FILE)
@@ -711,6 +766,7 @@ with right:
             if approved:
                 st.success(f"Approved at {st.session_state.approvals[key]['approved_at'][:19]}")
 
+    # ---------- ACTIVE MONITORING CHANNELS ----------
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(
         "<div class='gp-panel-title'>📡 Active Monitoring Channels</div>",
@@ -718,14 +774,19 @@ with right:
     )
 
     mc1, mc2, mc3 = st.columns(3)
-    for col, (label, val) in zip(
-        [mc1, mc2, mc3],
-        [("RADIO", "142"), ("SOCIAL", "1.2K"), ("PRINT", "84")],
-    ):
+
+    sources = {}
+    for s in stories:
+        src = s.get("source", "Unknown")
+        sources[src] = sources.get(src, 0) + 1
+
+    top_sources = sorted(sources.items(), key=lambda x: -x[1])[:3]
+
+    for col, (src, count) in zip([mc1, mc2, mc3], top_sources):
         col.markdown(f"""
             <div class="gp-metric" style="text-align:center; padding:12px;">
-                <div class="gp-metric-value">{val}</div>
-                <div class="gp-metric-label" style="margin-top:4px;">{label}</div>
+                <div class="gp-metric-value">{count}</div>
+                <div class="gp-metric-label" style="margin-top:4px;">{src.upper()}</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -743,15 +804,33 @@ st.markdown(
 )
 
 if stories:
+    sorted_stories = sorted(
+        stories,
+        key=lambda s: (
+            0 if s.get("sentiment") == "Negative" else
+            1 if s.get("sentiment") == "Neutral" else 2
+        )
+    )
+
     rows = []
-    for i, s in enumerate(stories[:10]):
+    for s in sorted_stories[:10]:
+        source = s.get("source", "")
+
+        if "upload" in source.lower() or "newspaper" in source.lower():
+            source_type = "Print"
+        elif "radio" in source.lower():
+            source_type = "Broadcast"
+        else:
+            source_type = "Online"
+
         rows.append({
-            "Source":          s.get("source", ""),
-            "Media Headline":  s.get("headline", ""),
-            "Region":          "NA",
-            "Sentiment":       s.get("sentiment", "Neutral"),
-            "Reach":           f"{(i+1)*2}.{(i*3) % 10}M",
+            "Source":       source,
+            "Type":         source_type,
+            "Headline":     s.get("headline", ""),
+            "Sentiment":    s.get("sentiment", "Neutral"),
+            "O/M/A":        ", ".join(s.get("oma", ["Unmapped"]))[:45],
         })
+
     df = pd.DataFrame(rows)
     st.dataframe(df, use_container_width=True, hide_index=True)
 
@@ -773,6 +852,8 @@ with bcol1:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
+    else:
+        st.info("Run 'Regenerate Brief' to create the Excel.")
 
 with bcol2:
     pdf_path = "data/processed/daily_brief.pdf"
@@ -785,6 +866,8 @@ with bcol2:
                 mime="application/pdf",
                 use_container_width=True,
             )
+    else:
+        st.info("Run 'Regenerate Brief' to create the PDF.")
 
 with bcol3:
     approved_count = len(st.session_state.approvals)

@@ -89,16 +89,15 @@ PRIOR STATEMENTS FROM THIS MINISTRY:
 {precedents_text}
 
 TASK:
-Write a short official response statement (100-150 words) in the tone and style of the prior statements. The response should:
-1. Acknowledge the issue raised in the story
-2. Provide a factual clarification or context
-3. State what the ministry is doing or will do
-4. Reassure the public
+Write a very short official response (2-3 sentences, no more than 50 words) 
+in the tone and style of the prior statements. The response should:
+1. Acknowledge the issue
+2. State what the ministry is doing
+3. Reassure the public
 
-Do NOT invent specific facts, dates, or names that aren't in the source material. If uncertain, use general phrasing like "the relevant authorities are addressing the matter."
+Do NOT invent specific facts, dates, or names that aren't in the source material.
 
-Return ONLY the statement text. No preamble, no explanation."""
-
+Return ONLY the statement text. No preamble, no explanation. Maximum 50 words."""
     return prompt
 
 
@@ -134,7 +133,7 @@ def draft_response(story):
                 model=MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.5,
-                max_tokens=400,
+                max_tokens=150,
             )
             draft = (response.choices[0].message.content or "").strip()
 
