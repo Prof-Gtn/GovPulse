@@ -1,8 +1,9 @@
 """
 GovPulse — Streamlit Dashboard
-Matches the Visily mockup: institutional, clean, government-ready.
+MICT-styled institutional dashboard.
 """
 
+import base64
 import json
 import os
 import subprocess
@@ -26,9 +27,28 @@ st.set_page_config(
 # ------------------------------------------------------------------
 # PATHS
 # ------------------------------------------------------------------
+BASE_DIR       = os.path.dirname(os.path.abspath(__file__))
+LOGO_PATH      = os.path.join(BASE_DIR, "assets", "mict_logo.png")
+
 MAPPED_FILE    = "data/processed/mapped.json"
 RESPONSES_FILE = "data/processed/responses.json"
 APPROVALS_FILE = "data/processed/approvals.json"
+
+
+# ------------------------------------------------------------------
+# LOGO — load once, reuse everywhere
+# ------------------------------------------------------------------
+def _logo_base64(path):
+    """Return the logo as a base64 string so it can be inlined in HTML."""
+    try:
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode("ascii")
+    except Exception as e:
+        print(f"[GovPulse] Logo load failed: {e}")
+        return None
+
+
+logo_b64 = _logo_base64(LOGO_PATH)
 
 
 # ------------------------------------------------------------------
@@ -90,46 +110,49 @@ def sentiment_color(s):
 
 
 # ------------------------------------------------------------------
-# GLOBAL STYLING
+# GLOBAL STYLING — MICT-website-inspired theme
 # ------------------------------------------------------------------
 st.markdown(
     """
     <style>
         :root {
-            --bg: #F5F6FA;
-            --card: #FFFFFF;
-            --text: #111827;
-            --body: #374151;
-            --muted: #6B7280;
-            --border: #E5E7EB;
-            --subtle: #F9FAFB;
+            --mict-navy:   #0F2540;
+            --mict-teal:   #0E8C8C;
+            --mict-teal-d: #0A6E6E;
+            --mict-blue:   #1E5AA8;
+            --bg:          #FFFFFF;
+            --page:        #F5F6FA;
+            --card:        #FFFFFF;
+            --text:        #111827;
+            --body:        #374151;
+            --muted:       #6B7280;
+            --border:      #E5E7EB;
+            --subtle:      #F9FAFB;
         }
 
         html, body, [class*="css"] { font-family: 'Segoe UI', Roboto, sans-serif; }
-        .stApp { background: var(--bg); }
+        .stApp { background: var(--page); }
 
         /* ---------------- SIDEBAR ---------------- */
-        section[data-testid="stSidebar"] { background: #0F2540; }
+        section[data-testid="stSidebar"] { background: var(--mict-navy); }
         section[data-testid="stSidebar"] * { color: #E5EAF3 !important; }
         section[data-testid="stSidebar"] hr { border-color: #1E3A5F; }
         section[data-testid="stSidebar"] .stButton > button {
-            background: #1E3A5F !important;
-            color: #FFFFFF !important;
+            background: transparent !important;
+            color: #E5EAF3 !important;
             border: none !important;
-            border-radius: 6px !important;
+            border-radius: 0 !important;
             width: 100% !important;
             text-align: left !important;
-            font-weight: 500 !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            font-size: 12px !important;
+            padding: 8px 12px !important;
         }
         section[data-testid="stSidebar"] .stButton > button:hover {
-            background: #2A4A73 !important;
+            background: rgba(255,255,255,0.08) !important;
             color: #FFFFFF !important;
-        }
-        section[data-testid="stSidebar"] .stButton > button:active,
-        section[data-testid="stSidebar"] .stButton > button:focus {
-            background: #163A5C !important;
-            color: #FFFFFF !important;
-            border: none !important;
         }
 
         /* ---------------- GLOBAL BUTTONS ---------------- */
@@ -137,32 +160,19 @@ st.markdown(
         .stDownloadButton > button,
         button[kind="secondary"],
         button[kind="primary"] {
-            background: #1E3A5F !important;
+            background: var(--mict-teal) !important;
             color: #FFFFFF !important;
             border: none !important;
-            border-radius: 6px !important;
-            font-weight: 500 !important;
+            border-radius: 4px !important;
+            font-weight: 600 !important;
         }
-
         .stButton > button:hover,
         .stDownloadButton > button:hover,
         button[kind="secondary"]:hover,
         button[kind="primary"]:hover {
-            background: #2A4A73 !important;
+            background: var(--mict-teal-d) !important;
             color: #FFFFFF !important;
-            border: none !important;
         }
-
-        .stButton > button:active,
-        .stButton > button:focus,
-        .stDownloadButton > button:active,
-        .stDownloadButton > button:focus {
-            background: #163A5C !important;
-            color: #FFFFFF !important;
-            border: none !important;
-            box-shadow: 0 0 0 2px rgba(30, 90, 168, 0.3) !important;
-        }
-
         .stButton > button:disabled,
         .stDownloadButton > button:disabled {
             background: #D1D5DB !important;
@@ -170,66 +180,120 @@ st.markdown(
             cursor: not-allowed !important;
         }
 
-        details summary,
-        details summary * {
-            color: var(--text) !important;
-        }
-
         /* ---------------- SEARCH BAR ---------------- */
         div[data-testid="stTextInput"] div[data-baseweb="input"],
         div[data-testid="stTextInput"] div[data-baseweb="base-input"] {
             background: #FFFFFF !important;
-            border: 1px solid #E5E7EB !important;
-            border-radius: 8px !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 4px !important;
         }
         div[data-testid="stTextInput"] input {
             background: #FFFFFF !important;
             color: #111827 !important;
             -webkit-text-fill-color: #111827 !important;
-            caret-color: #111827 !important;
         }
         div[data-testid="stTextInput"] input::placeholder {
             color: #9CA3AF !important;
             -webkit-text-fill-color: #9CA3AF !important;
-            opacity: 1 !important;
-        }
-        div[data-testid="stTextInput"] div[data-baseweb="input"]:focus-within {
-            border-color: #1E3A5F !important;
-            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.15) !important;
         }
 
-        /* ---------------- TEXT AREA (edit mode) ---------------- */
+        /* ---------------- TEXT AREA ---------------- */
         div[data-testid="stTextArea"] textarea {
             background: #FFFFFF !important;
             color: #111827 !important;
-            border: 1px solid #E5E7EB !important;
-            border-radius: 8px !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 4px !important;
             font-family: 'Segoe UI', Roboto, sans-serif !important;
             font-size: 13px !important;
             line-height: 1.6 !important;
         }
 
+        /* ---------------- MICT SECTION HEADING ---------------- */
+        .mict-heading {
+            color: var(--mict-teal);
+            font-size: 15px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            text-align: center;
+            margin: 0 0 14px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .mict-heading-left {
+            color: var(--mict-teal);
+            font-size: 15px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin: 0 0 14px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* ---------------- MICT CARD ---------------- */
+        .mict-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px 20px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            margin-bottom: 16px;
+            height: 100%;
+        }
+        .mict-card-title {
+            color: var(--mict-blue);
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        .mict-card-body {
+            color: var(--body);
+            font-size: 13px;
+            line-height: 1.55;
+            text-align: center;
+        }
+        .mict-card-link {
+            display: block;
+            text-align: center;
+            color: var(--mict-blue);
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 12px;
+            text-decoration: none;
+        }
+
         /* ---------------- METRIC CARDS ---------------- */
         .gp-metric {
-            background: var(--card); border-radius: 10px; padding: 17.3px 19.4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            border-left: 4px solid #E5E7EB;
+            background: var(--card);
+            border-radius: 10px;
+            padding: 17px 19px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            border-left: 4px solid var(--border);
         }
         .gp-metric-label {
-            font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
-            color: var(--muted); margin-bottom: 6px;
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--muted); margin-bottom: 6px; font-weight: 600;
         }
-        .gp-metric-value { font-size: 28px; font-weight: 700; color: var(--text); line-height: 1.1; }
+        .gp-metric-value { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1.1; }
         .gp-metric-delta { font-size: 12px; color: #16A34A; margin-top: 4px; }
 
         /* ---------------- STORY CARDS ---------------- */
         .gp-story {
-            background: var(--card); border-radius: 10px; padding: 14px 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 10px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 16px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            margin-bottom: 10px;
         }
         .gp-badge {
             display: inline-block; font-size: 10px; font-weight: 700;
-            padding: 2px 8px; border-radius: 4px; text-transform: uppercase;
+            padding: 2px 8px; border-radius: 10px; text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         .gp-headline {
@@ -244,29 +308,63 @@ st.markdown(
         /* ---------------- CRISIS ALERT ---------------- */
         .gp-crisis {
             background: #FEE2E2; border-left: 4px solid #DC2626;
-            border-radius: 8px; padding: 14px 16px; margin-bottom: 12px;
+            border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
         }
         .gp-crisis-title { font-weight: 700; color: #991B1B; font-size: 14px; margin-bottom: 4px; }
         .gp-crisis-body { font-size: 12px; color: #7F1D1D; }
 
         /* ---------------- RESPONSE PANEL ---------------- */
         .gp-response {
-            background: var(--card); border-radius: 10px; padding: 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         }
-        .gp-panel-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+        .gp-panel-title {
+            font-size: 13px; font-weight: 700; color: var(--mict-teal);
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+        }
         .gp-panel-sub { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+
+        /* ---------------- HEADER ---------------- */
+        .mict-header {
+            background: #FFFFFF;
+            border-bottom: 1px solid var(--border);
+            padding: 10px 0 12px 0;
+            margin: -10px 0 0 0;
+        }
+        .mict-header-title {
+            color: #111827;
+            font-size: 17px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 0;
+        }
+        .mict-header-sub {
+            color: #374151;
+            font-size: 13px;
+            margin: 2px 0 0 0;
+        }
 
         /* ---------------- BANNER ---------------- */
         .gp-banner {
             background: linear-gradient(90deg, #0F2540 0%, #1A3556 100%);
-            border-radius: 10px; padding: 24px 28px;
-            color: white; margin-bottom: 20px;
+            border-radius: 10px;
+            padding: 24px 28px;
+            color: white;
+            margin-bottom: 20px;
         }
-        .gp-banner h1 { color: white; font-size: 26px; margin: 0 0 6px 0; }
+        .gp-banner h1 { color: white; font-size: 24px; margin: 0 0 6px 0; font-weight: 700; }
         .gp-banner p { color: #B0C0D8; font-size: 13px; margin: 0; }
 
-        .stDataFrame { background: var(--card); border-radius: 10px; }
+        .stDataFrame { background: var(--card); border-radius: 2px; }
+
+        .block-container { padding-top: 3rem; max-width: 1200px; }
+        header[data-testid="stHeader"] {
+    background: transparent !important;
+    height: 2.5rem;
+}
     </style>
     """,
     unsafe_allow_html=True,
@@ -282,68 +380,68 @@ st.session_state.approvals = load_json(APPROVALS_FILE, default={})
 
 if "selected_story_headline" not in st.session_state:
     st.session_state.selected_story_headline = None
-if "dark_mode" not in st.session_state:
-    st.session_state.dark_mode = False
 if "quick_filter" not in st.session_state:
     st.session_state.quick_filter = "All"
 if "editing_headline" not in st.session_state:
     st.session_state.editing_headline = None
-
-
-# ------------------------------------------------------------------
-# DARK MODE OVERRIDE
-# ------------------------------------------------------------------
-if st.session_state.dark_mode:
-    st.markdown(
-        """
-        <style>
-            :root {
-                --bg: #0B1220;
-                --card: #121B2E;
-                --text: #E8EDF5;
-                --body: #E8EDF5;
-                --muted: #8A99B3;
-                --border: #223049;
-                --subtle: #0B1220;
-            }
-            header[data-testid="stHeader"] { background: transparent !important; }
-            [data-testid="stMain"] hr { border-color: var(--border) !important; }
-            [data-testid="stMain"] details { border-color: var(--border) !important; }
-            [data-testid="stMain"] [data-testid="stCaptionContainer"],
-            [data-testid="stMain"] [data-testid="stCaptionContainer"] p {
-                color: var(--muted) !important;
-            }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "Dashboard"
 
 
 # ------------------------------------------------------------------
 # SIDEBAR
 # ------------------------------------------------------------------
 with st.sidebar:
-    st.markdown(
-        """
-        <div style="padding: 12px 4px 20px 4px;">
-            <div style="font-size: 18px; font-weight: 700; color: white;">
-                🛡️ GovPulse
+    if logo_b64:
+        st.markdown(
+            f"""
+            <div style="padding: 12px 4px 16px 4px; text-align:center;">
+                <img src="data:image/png;base64,{logo_b64}"
+                     alt="MICT" style="max-width:180px;" />
+                <div style="font-size:11px; color:#8899B0; margin-top:8px;
+                            text-transform:uppercase; letter-spacing:0.6px;">
+                    GovPulse Media Intelligence
+                </div>
             </div>
-            <div style="font-size: 11px; color: #8899B0; margin-top: 4px;">
-                Media Intelligence
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            """
+            <div style="padding: 12px 4px 20px 4px;">
+                <div style="font-size: 18px; font-weight: 700; color: white;">
+                    GovPulse
+                </div>
+                <div style="font-size: 11px; color: #8899B0; margin-top: 4px;">
+                    Media Intelligence
+                </div>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.markdown("##### NAVIGATION")
-    st.button("📊  Dashboard", use_container_width=True)
-    st.button("📡  Monitoring", use_container_width=True)
-    st.button("🔔  Alerts", use_container_width=True)
-    st.button("📄  Reports", use_container_width=True)
-    st.button("⚙️  Settings", use_container_width=True)
-    st.toggle("🌙 Dark mode", key="dark_mode")
+
+    nav_items = [
+        ("📊  Dashboard",  "Dashboard"),
+        ("📡  Monitoring", "Monitoring"),
+        ("📄  Reports",    "Reports"),
+        ("⚙️  Settings",   "Settings"),
+    ]
+    for label, page in nav_items:
+        is_active = st.session_state.current_page == page
+        # Visually highlight the active page
+        if is_active:
+            st.markdown(
+                "<div style='background:rgba(255,255,255,0.12); "
+                "border-left:3px solid #0E8C8C; padding:2px 0 2px 0; "
+                "margin-bottom:-6px;'></div>",
+                unsafe_allow_html=True,
+            )
+        if st.button(label, key=f"nav_{page}", use_container_width=True):
+            st.session_state.current_page = page
+            st.rerun()
 
     st.divider()
     st.markdown("##### PIPELINE")
@@ -385,43 +483,73 @@ with st.sidebar:
 
 
 # ------------------------------------------------------------------
-# TOP BAR
+# MICT HEADER (logo + title + search)
 # ------------------------------------------------------------------
-top_l, top_r = st.columns([6, 1])
-with top_l:
+head_l, head_r = st.columns([3, 1])
+with head_l:
+    if logo_b64:
+        st.markdown(
+            f"""
+            <div class="mict-header" style="display:flex; align-items:center; gap:16px;">
+                <img src="data:image/png;base64,{logo_b64}"
+                     alt="MICT" style="height:60px;" />
+                <div>
+                    <div class="mict-header-title">
+                        Ministry of Information &amp; Communication Technology
+                    </div>
+                    <div class="mict-header-sub">Republic of Namibia</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            """
+            <div class="mict-header">
+                <div class="mict-header-title">
+                    Ministry of Information &amp; Communication Technology
+                </div>
+                <div class="mict-header-sub">Republic of Namibia</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+with head_r:
     search_query = st.text_input(
         "Search",
-        placeholder="🔍 Search media, sentiments, or reports...",
+        placeholder="Search...",
         label_visibility="collapsed",
     )
-with top_r:
-    st.markdown(
-        """
-        <div style="background:var(--card); border-radius:8px; padding:10px 16px;
-                    text-align:right; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-            🔔 &nbsp; 👤
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
-
+if st.session_state.current_page == "Dashboard":
 # ------------------------------------------------------------------
 # BANNER
 # ------------------------------------------------------------------
-st.markdown(
+    st.markdown(
     """
     <div class="gp-banner">
         <h1>GovPulse Media Intelligence</h1>
-        <p>Real-time sentiment monitoring and institutional impact analysis for the current briefing cycle.</p>
+        <p>Real-time sentiment monitoring and institutional impact analysis.</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
+elif st.session_state.current_page == "Monitoring":          # <-- HERE
+    st.markdown("<div class='mict-heading-left'>📡 Monitoring</div>", unsafe_allow_html=True)
+    st.info("Monitoring view coming soon.")
 
+elif st.session_state.current_page == "Reports":
+    st.markdown("<div class='mict-heading-left'>📄 Reports</div>", unsafe_allow_html=True)
+    st.info("Reports archive coming soon.")
+
+elif st.session_state.current_page == "Settings":
+    st.markdown("<div class='mict-heading-left'>⚙️ Settings</div>", unsafe_allow_html=True)
+    st.info("Settings panel coming soon.")
 
 # ------------------------------------------------------------------
-# SUMMARY STATS
+# SUMMARY STATS — MICT-style four-card row
 # ------------------------------------------------------------------
 stories = st.session_state.mapped
 total = len(stories) or 1
@@ -432,34 +560,46 @@ neg = sum(1 for s in stories if s.get("sentiment") == "Negative")
 c1, c2, c3, c4 = st.columns(4)
 
 c1.markdown(f"""
-    <div class="gp-metric" style="border-left-color:#16A34A;">
-        <div class="gp-metric-label">🟢 Positive Sentiment</div>
-        <div class="gp-metric-value">{pos / total * 100:.1f}%</div>
-        <div class="gp-metric-delta">▲ {pos} stories</div>
+    <div class="mict-card">
+        <div class="mict-card-title">Positive Sentiment</div>
+        <div class="mict-card-body">
+            <div style="font-size:30px; font-weight:700; color:#16A34A;">{pos/total*100:.1f}%</div>
+            <div style="color:#6B7280; margin-top:6px;">{pos} stories in cycle</div>
+        </div>
+        <a class="mict-card-link" href="#">Read more</a>
     </div>
 """, unsafe_allow_html=True)
 
 c2.markdown(f"""
-    <div class="gp-metric" style="border-left-color:#9CA3AF;">
-        <div class="gp-metric-label">⚫ Neutral Sentiment</div>
-        <div class="gp-metric-value">{neu / total * 100:.1f}%</div>
-        <div class="gp-metric-delta" style="color:#6B7280;">▼ {neu} stories</div>
+    <div class="mict-card">
+        <div class="mict-card-title">Neutral Sentiment</div>
+        <div class="mict-card-body">
+            <div style="font-size:30px; font-weight:700; color:#6B7280;">{neu/total*100:.1f}%</div>
+            <div style="color:#6B7280; margin-top:6px;">{neu} stories in cycle</div>
+        </div>
+        <a class="mict-card-link" href="#">Read more</a>
     </div>
 """, unsafe_allow_html=True)
 
 c3.markdown(f"""
-    <div class="gp-metric" style="border-left-color:#DC2626;">
-        <div class="gp-metric-label">🔴 Negative Sentiment</div>
-        <div class="gp-metric-value">{neg / total * 100:.1f}%</div>
-        <div class="gp-metric-delta" style="color:#DC2626;">▲ {neg} stories</div>
+    <div class="mict-card">
+        <div class="mict-card-title">Negative Sentiment</div>
+        <div class="mict-card-body">
+            <div style="font-size:30px; font-weight:700; color:#DC2626;">{neg/total*100:.1f}%</div>
+            <div style="color:#6B7280; margin-top:6px;">{neg} stories in cycle</div>
+        </div>
+        <a class="mict-card-link" href="#">Read more</a>
     </div>
 """, unsafe_allow_html=True)
 
 c4.markdown(f"""
-    <div class="gp-metric" style="border-left-color:#1E5AA8;">
-        <div class="gp-metric-label">📊 Total Mentions</div>
-        <div class="gp-metric-value">{total}</div>
-        <div class="gp-metric-delta">Current cycle</div>
+    <div class="mict-card">
+        <div class="mict-card-title">Total Mentions</div>
+        <div class="mict-card-body">
+            <div style="font-size:30px; font-weight:700; color:#1E5AA8;">{total}</div>
+            <div style="color:#6B7280; margin-top:6px;">Current cycle</div>
+        </div>
+        <a class="mict-card-link" href="#">Read more</a>
     </div>
 """, unsafe_allow_html=True)
 
@@ -478,8 +618,7 @@ with left:
 
     with qf_label_col:
         st.markdown(
-            "<div style='font-size:18px; font-weight:700; color:var(--text); padding-top:6px;'>"
-            "Review Queue</div>",
+            "<div class='mict-heading-left' style='margin:0;'>Review Queue</div>",
             unsafe_allow_html=True,
         )
     with qf_all_col:
@@ -675,7 +814,7 @@ with right:
                     st.markdown("<div style='height:8px;'></div>",
                                 unsafe_allow_html=True)
 
-        # ---------- ACTION BUTTONS (only in normal view) ----------
+        # ---------- ACTION BUTTONS ----------
         if not editing:
             bc1, bc2, bc3 = st.columns(3)
             if bc1.button("✅ Approve", use_container_width=True, disabled=approved):
@@ -686,7 +825,6 @@ with right:
                 }
                 save_json(st.session_state.approvals, APPROVALS_FILE)
 
-                # Auto-regenerate the daily brief so downloads are current
                 with st.spinner("Regenerating daily brief with approved response..."):
                     subprocess.run(
                         [sys.executable, "src/report.py"],
@@ -702,7 +840,6 @@ with right:
                 st.rerun()
 
             if bc3.button("❌ Reject", use_container_width=True, disabled=approved):
-                # Mark as rejected by removing approval if it existed, otherwise note
                 if key in st.session_state.approvals:
                     del st.session_state.approvals[key]
                     save_json(st.session_state.approvals, APPROVALS_FILE)
@@ -717,10 +854,10 @@ with right:
         unsafe_allow_html=True,
     )
 
-    mc1, mc2, mc3 = st.columns(3)
+    mc1, mc2 = st.columns(2)
     for col, (label, val) in zip(
-        [mc1, mc2, mc3],
-        [("RADIO", "142"), ("SOCIAL", "1.2K"), ("PRINT", "84")],
+        [mc1, mc2],
+        [("SOCIAL", "1.2K"), ("PRINT", "84")],
     ):
         col.markdown(f"""
             <div class="gp-metric" style="text-align:center; padding:12px;">
@@ -735,8 +872,7 @@ with right:
 # ------------------------------------------------------------------
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown(
-    "<div style='font-size:18px; font-weight:700; color:var(--text); margin-bottom:4px;'>"
-    "Recent National Coverage</div>"
+    "<div class='mict-heading-left'>Recent National Coverage</div>"
     "<div style='font-size:12px; color:var(--muted); margin-bottom:12px;'>"
     "Latest media mentions across monitored sources</div>",
     unsafe_allow_html=True,
@@ -788,18 +924,21 @@ with bcol2:
 
 with bcol3:
     approved_count = len(st.session_state.approvals)
-    drafts_ok = sum(1 for r in st.session_state.responses
-                    if r.get("response", {}).get("status") == "ok")
+    drafts_ok = sum(
+        1 for r in st.session_state.responses
+        if r.get("response", {}).get("status") == "ok"
+    )
     st.caption(
-        f"Stories: {total} | Mapped: {sum(1 for s in stories if s.get('oma') and s['oma'] != ['Unmapped'])} | "
+        f"Stories: {total} | "
+        f"Mapped: {sum(1 for s in stories if s.get('oma') and s['oma'] != ['Unmapped'])} | "
         f"Drafts: {drafts_ok} | Approved: {approved_count}"
     )
 
 st.divider()
 st.markdown(
-    f"<div style='font-size:11px; color:#9CA3AF; padding:8px 0;'>"
-    f"GOVPULSE V1.0  &nbsp;•&nbsp;  © 2026 GovPulse. All Rights Reserved.  &nbsp;•&nbsp;  "
-    f"Team Binary — National ICT Summit Hackathon 2026"
-    f"</div>",
+    "<div style='font-size:11px; color:#9CA3AF; padding:8px 0;'>"
+    "GOVPULSE V1.0 &nbsp;•&nbsp; © 2026 GovPulse. All Rights Reserved. &nbsp;•&nbsp; "
+    " National ICT Summit Hackathon 2026"
+    "</div>",
     unsafe_allow_html=True,
 )
