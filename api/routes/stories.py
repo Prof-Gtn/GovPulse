@@ -165,7 +165,7 @@ def edit_story(
 
     # Export DB to JSON so report.py still works
     try:
-        from src.db_import import export_all
+        from src.db_export import export_all
         export_all()
     except Exception:
         pass

@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Ministry — GovPulse</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+<!-- TOP NAV -->
+<header class="topnav">
+    <div class="topnav-inner">
+        <div class="brand">
+            <div class="brand-mark">
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                    <path d="M1 12h5l3-9 4 16 3-7h5" stroke="#0F2540" stroke-width="2.2" stroke-linejoin="miter"/>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <div class="brand-name">GovPulse</div>
+                <div class="brand-sub">Ministry Portal · Republic of Namibia</div>
+            </div>
+        </div>
+
+        <div class="user-menu">
+            <div class="user-info">
+                <div class="user-label">Signed in as</div>
+                <div class="user-name" id="userName">…</div>
+            </div>
+            <div class="user-avatar" id="userAvatar">–</div>
+            <button class="btn-logout" id="btnLogout">Logout</button>
+        </div>
+    </div>
+</header>
+
+<main class="main">
+
+    <!-- MINISTRY HEADER -->
+    <div class="nam-gradient" style="padding:32px 24px; border-radius:8px; margin-bottom:20px; color:white;">
+        <div style="font-size:11px; font-weight:600; letter-spacing:0.08em; opacity:0.8; text-transform:uppercase; margin-bottom:6px;">
+            Ministry Dashboard
+        </div>
+        <h1 class="serif" style="font-size:28px; font-weight:700; letter-spacing:-0.015em; margin-bottom:6px;" id="ministryName">
+            Loading…
+        </h1>
+        <div style="font-size:13px; color:#A9BBD3;" id="todayDate"></div>
+    </div>
+
+    <!-- STAT CARDS -->
+    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr); margin-bottom:20px;">
+        <div class="stat-card total">
+            <div class="stat-label">Total Coverage</div>
+            <div class="stat-value" id="statTotal">–</div>
+            <div class="stat-sub">stories today</div>
+        </div>
+        <div class="stat-card negative">
+            <div class="stat-label">Negative</div>
+            <div class="stat-value" id="statNegative">–</div>
+            <div class="stat-sub">needs attention</div>
+        </div>
+        <div class="stat-card neutral">
+            <div class="stat-label">Pending Responses</div>
+            <div class="stat-value" id="statPending">–</div>
+            <div class="stat-sub">awaiting action</div>
+        </div>
+        <div class="stat-card positive">
+            <div class="stat-label">Approved</div>
+            <div class="stat-value" id="statApproved">–</div>
+            <div class="stat-sub">responses issued</div>
+        </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="panel" style="margin-bottom:20px; border-left:4px solid var(--negative);">
+        <div class="panel-header">
+            <h2 style="color:var(--negative);">⚠️ Alerts</h2>
+            <span class="note" id="alertsCount"></span>
+        </div>
+        <div id="alertsBody" style="padding:16px 20px;">
+            <div class="empty">Loading alerts…</div>
+        </div>
+    </div>
+
+    <!-- TWO COLUMN LAYOUT -->
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+
+        <!-- LEFT COLUMN -->
+        <div>
+
+            <!-- TREND CHART -->
+            <div class="panel" style="margin-bottom:20px;">
+                <div class="panel-header">
+                    <h2>7-Day Sentiment Trend</h2>
+                    <span class="note">Coverage over time</span>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-container" style="height:260px;">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COVERAGE LIST -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Your Coverage</h2>
+                    <span class="note" id="storiesCount"></span>
+                </div>
+                <div class="table-wrap">
+                    <table class="stack">
+                        <thead>
+                            <tr>
+                                <th style="width:160px">Source</th>
+                                <th>Headline</th>
+                                <th style="width:100px">Sentiment</th>
+                                <th style="width:90px">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="storiesBody">
+                            <tr><td colspan="4" class="empty">Loading stories…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div>
+
+            <!-- RESPONSE HISTORY -->
+            <div class="panel" style="margin-bottom:20px;">
+                <div class="panel-header">
+                    <h2>Response History</h2>
+                </div>
+                <div class="panel-body">
+                    <div id="responseHistory" class="kv-list">
+                        <div class="empty" style="padding:20px 0;">No responses yet</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RECENT ACTIVITY -->
+            <div class="panel" style="margin-bottom:20px;">
+                <div class="panel-header">
+                    <h2>Recent Activity</h2>
+                </div>
+                <div class="panel-body">
+                    <div id="activityFeed" class="kv-list">
+                        <div class="empty" style="padding:20px 0;">Loading…</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NOTIFY MICT -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Contact MICT</h2>
+                </div>
+                <div class="panel-body">
+                    <p style="font-size:12.5px; color:var(--mute); margin-bottom:12px;">
+                        Flag a story for MICT attention or send a note.
+                    </p>
+                    <button class="btn btn-primary" id="btnNotify" style="width:100%;">
+                        ✉️ Notify MICT
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</main>
+
+<!-- RESPONSE MODAL -->
+<div class="modal-overlay" id="responseModal">
+    <div class="modal" role="dialog" aria-modal="true" style="max-width:680px;">
+        <div class="modal-header">
+            <div class="label">Response Desk</div>
+            <h3 id="modalHeadline">—</h3>
+            <div class="meta" id="modalMeta">—</div>
+        </div>
+
+        <div class="modal-body">
+            <div class="modal-section" id="modalSummarySection">
+                <div class="modal-section-label">Story Summary</div>
+                <div class="modal-summary" id="modalSummary">—</div>
+            </div>
+
+            <div class="modal-section">
+                <div class="modal-section-label">AI-Drafted Response</div>
+                <textarea class="modal-textarea" id="modalDraft" style="min-height:140px;"></textarea>
+            </div>
+
+            <div class="modal-section">
+                <div class="modal-section-label">What action was taken?</div>
+                <input type="text" class="modal-textarea" id="modalActionTaken"
+                       style="min-height:auto; padding:10px;"
+                       placeholder="e.g. Issued press statement on 14 Oct; Briefed the Minister" />
+                <div class="note" style="margin-top:6px; font-size:11px; color:var(--mute);">
+                    This appears in MICT's daily brief under Comment / Recommendation
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-ghost" id="modalCancel">Cancel</button>
+            <button class="btn btn-primary" id="modalSave">Approve & Log Response</button>
+        </div>
+    </div>
+</div>
+
+<!-- NOTIFY MICT MODAL -->
+<div class="modal-overlay" id="notifyModal">
+    <div class="modal" role="dialog" aria-modal="true" style="max-width:520px;">
+        <div class="modal-header">
+            <div class="label">Contact MICT</div>
+            <h3>Notify MICT</h3>
+            <div class="meta">Send a note to the MICT media monitoring team</div>
+        </div>
+
+        <div class="modal-body">
+            <div class="modal-section">
+                <div class="modal-section-label">Related Story (optional)</div>
+                <select id="notifyHeadline" class="modal-textarea" style="min-height:auto;padding:10px;"></select>
+            </div>
+
+            <div class="modal-section">
+                <div class="modal-section-label">Message</div>
+                <textarea class="modal-textarea" id="notifyMessage"
+                          placeholder="Type your message to MICT..."
+                          style="min-height:100px;"></textarea>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-ghost" id="notifyCancel">Cancel</button>
+            <button class="btn btn-primary" id="notifySend">Send to MICT</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/api.js"></script>
+<script>
+(function () {
+    "use strict";
+
+    // ---------------------------------------------------------
+    // AUTH GUARD — ministry users only
+    // ---------------------------------------------------------
+    if (!requireLogin()) return;
+
+    const user = getUser() || {};
+    if (user.role !== "ministry") {
+        window.location.href = "dashboard.html";
+        return;
+    }
+
+    // ---------------------------------------------------------
+    // HELPERS
+    // ---------------------------------------------------------
+    const $ = (s) => document.querySelector(s);
+    const $$ = (s) => [...document.querySelectorAll(s)];
+
+    const escapeHtml = (s) =>
+        String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
+            "&": "&amp;", "<": "&lt;", ">": "&gt;",
+            '"': "&quot;", "'": "&#39;",
+        }[c]));
+
+    const capitalize = (s) =>
+        String(s || "").charAt(0).toUpperCase() + String(s || "").slice(1);
+
+    const normalizeSentiment = (s) => {
+        s = String(s || "neutral").toLowerCase();
+        if (s.startsWith("neg")) return "negative";
+        if (s.startsWith("pos")) return "positive";
+        return "neutral";
+    };
+
+    const showToast = (msg) => {
+        const t = $("#toast");
+        t.textContent = msg;
+        t.style.display = "block";
+        clearTimeout(showToast._h);
+        showToast._h = setTimeout(() => (t.style.display = "none"), 3200);
+    };
+
+    const fmtDate = (iso) => {
+        try {
+            const d = new Date(iso);
+            return d.toLocaleString("en-GB", {
+                day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+            });
+        } catch { return iso; }
+    };
+
+    // ---------------------------------------------------------
+    // INIT
+    // ---------------------------------------------------------
+    $("#userName").textContent = user.name || user.username || "Ministry User";
+    $("#userAvatar").textContent = (user.name || user.username || "U")
+        .split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+    $("#btnLogout").onclick = logout;
+
+    $("#todayDate").textContent = new Date().toLocaleDateString("en-GB", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric"
+    });
+
+    // State
+    let stories = [];
+    let alerts = [];
+    let responses = [];
+    let approvals = [];
+    let current = null;
+
+    // ---------------------------------------------------------
+    // LOAD DATA
+    // ---------------------------------------------------------
+    async function loadAll() {
+        try {
+            const [sRes, aRes, rRes, apRes, trRes, actRes] = await Promise.all([
+                apiFetch("/ministry/stories").then((r) => r.json()),
+                apiFetch("/ministry/alerts").then((r) => r.json()),
+                apiFetch("/ministry/responses").then((r) => r.json()),
+                apiFetch("/ministry/approvals").then((r) => r.json()),
+                apiFetch("/ministry/trend").then((r) => r.json()),
+                apiFetch("/ministry/audit").then((r) => r.json()),
+            ]);
+
+            stories = sRes.stories || [];
+            alerts = aRes.alerts || [];
+            responses = rRes.responses || [];
+            approvals = apRes.approvals || [];
+
+            // Set ministry name in header
+            const ministryName = user.ministry || "Your Ministry";
+            $("#ministryName").textContent = ministryName;
+            document.title = `${ministryName} — GovPulse`;
+
+            // Summary stats
+            const pos = stories.filter((s) => normalizeSentiment(s.sentiment) === "positive").length;
+            const neg = stories.filter((s) => normalizeSentiment(s.sentiment) === "negative").length;
+            $("#statTotal").textContent = stories.length;
+            $("#statNegative").textContent = neg;
+            $("#statPending").textContent = alerts.length;
+            $("#statApproved").textContent = approvals.length;
+
+            // Render
+            renderAlerts();
+            renderStories();
+            renderResponseHistory();
+            renderTrend(trRes.trend || []);
+            renderActivity(actRes.entries || []);
+            populateNotifyStories();
+
+        } catch (e) {
+            console.error("Load failed:", e);
+            showToast("Could not load ministry data.");
+        }
+    }
+
+    // ---------------------------------------------------------
+    // ALERTS
+    // ---------------------------------------------------------
+    function renderAlerts() {
+        const container = $("#alertsBody");
+        $("#alertsCount").textContent = alerts.length + " pending";
+
+        if (!alerts.length) {
+            container.innerHTML = '<div class="empty">No alerts — your ministry has no pending negative coverage.</div>';
+            return;
+        }
+
+        container.innerHTML = alerts.map((s, i) => {
+            const draft = responses.find((r) => r.headline === s.headline);
+            const hasDraft = draft && draft.status === "ok";
+            return `
+                <div style="padding:12px 0; border-bottom:1px solid var(--rule-light);">
+                    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                        <div style="flex:1;">
+                            <span class="pill negative">Negative</span>
+                            <span style="font-size:12px; color:var(--mute); margin-left:8px;">${escapeHtml(s.source || "")}</span>
+                            <div class="headline-cell" style="margin-top:6px; font-size:14px;">
+                                ${escapeHtml(s.headline)}
+                            </div>
+                            ${hasDraft
+                                ? '<div style="font-size:11px; color:var(--positive); margin-top:4px;">✓ AI-drafted response ready</div>'
+                                : '<div style="font-size:11px; color:var(--mute); margin-top:4px;">No draft yet</div>'}
+                        </div>
+                        <button class="btn btn-primary btn-sm" data-review="${i}">
+                            Review
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join("");
+
+        $$("#alertsBody button[data-review]").forEach((b) => {
+            b.onclick = () => openResponseModal(alerts[Number(b.dataset.review)]);
+        });
+    }
+
+    // ---------------------------------------------------------
+    // STORIES
+    // ---------------------------------------------------------
+    function renderStories() {
+        const tbody = $("#storiesBody");
+        $("#storiesCount").textContent = stories.length + " stories";
+
+        if (!stories.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty">No coverage today.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = stories.map((s, i) => {
+            const sent = normalizeSentiment(s.sentiment);
+            const approved = approvals.find((a) => a.headline === s.headline);
+            const action = sent === "negative"
+                ? `<button class="btn btn-secondary btn-sm" data-review="${i}">Review</button>`
+                : `<span style="color:var(--rule); font-size:12px;">—</span>`;
+
+            return `
+                <tr>
+                    <td data-label="Source" style="font-size:12.5px; color:var(--ink-2); font-weight:500;">
+                        ${escapeHtml(s.source || "Unknown")}
+                    </td>
+                    <td class="headline-cell">
+                        ${escapeHtml(s.headline)}
+                        ${approved ? '<span style="color:var(--positive); font-weight:600; margin-left:6px;">✓</span>' : ''}
+                    </td>
+                    <td data-label="Sentiment"><span class="pill ${sent}">${capitalize(sent)}</span></td>
+                    <td data-label="Action">${action}</td>
+                </tr>
+            `;
+        }).join("");
+
+        $$("#storiesBody button[data-review]").forEach((b) => {
+            b.onclick = () => openResponseModal(stories[Number(b.dataset.review)]);
+        });
+    }
+
+    // ---------------------------------------------------------
+    // RESPONSE HISTORY
+    // ---------------------------------------------------------
+    function renderResponseHistory() {
+        const container = $("#responseHistory");
+        if (!approvals.length) {
+            container.innerHTML = '<div class="empty" style="padding:20px 0;">No responses yet</div>';
+            return;
+        }
+        container.innerHTML = approvals.slice(0, 8).map((a) => `
+            <div style="padding:10px 0; border-bottom:1px solid var(--rule-light);">
+                <div style="font-size:12px; color:var(--mute); margin-bottom:2px;">
+                    ${fmtDate(a.approved_at)}
+                </div>
+                <div style="font-size:12.5px; font-weight:500; color:var(--ink);">
+                    ${escapeHtml((a.final_text || "").substring(0, 100))}
+                </div>
+                <div style="font-size:11px; color:var(--mute); margin-top:4px;">
+                    by ${escapeHtml(a.approved_by || "unknown")}
+                </div>
+            </div>
+        `).join("");
+    }
+
+    // ---------------------------------------------------------
+    // TREND CHART
+    // ---------------------------------------------------------
+    let trendChart = null;
+
+    function renderTrend(trend) {
+        if (!window.Chart) return;
+        if (trendChart) trendChart.destroy();
+
+        const labels = trend.map((d) => {
+            const day = new Date(d.date);
+            return day.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+        });
+
+        Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+        Chart.defaults.font.size = 11;
+        Chart.defaults.color = "#475569";
+
+        trendChart = new Chart($("#trendChart"), {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: "Positive",
+                        data: trend.map((d) => d.Positive),
+                        borderColor: "#047857",
+                        backgroundColor: "rgba(4, 120, 87, 0.08)",
+                        tension: 0.3,
+                        borderWidth: 2,
+                        pointRadius: 3,
+                    },
+                    {
+                        label: "Neutral",
+                        data: trend.map((d) => d.Neutral),
+                        borderColor: "#64748B",
+                        backgroundColor: "rgba(100, 116, 139, 0.08)",
+                        tension: 0.3,
+                        borderWidth: 2,
+                        pointRadius: 3,
+                    },
+                    {
+                        label: "Negative",
+                        data: trend.map((d) => d.Negative),
+                        borderColor: "#B91C1C",
+                        backgroundColor: "rgba(185, 28, 28, 0.08)",
+                        tension: 0.3,
+                        borderWidth: 2,
+                        pointRadius: 3,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                        labels: { boxWidth: 10, boxHeight: 10, padding: 12 },
+                    },
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "#EEF2F6" } },
+                    x: { grid: { display: false } },
+                },
+            },
+        });
+    }
+
+    // ---------------------------------------------------------
+    // ACTIVITY FEED
+    // ---------------------------------------------------------
+    function renderActivity(entries) {
+        const container = $("#activityFeed");
+        if (!entries.length) {
+            container.innerHTML = '<div class="empty" style="padding:20px 0;">No recent activity</div>';
+            return;
+        }
+        container.innerHTML = entries.slice(0, 10).map((e) => {
+            const action = (e.action || "").replace(/_/g, " ");
+            return `
+                <div style="padding:8px 0; border-bottom:1px solid var(--rule-light); font-size:12px;">
+                    <div style="color:var(--ink-2);">${escapeHtml(capitalize(action))}</div>
+                    <div style="color:var(--mute); font-size:11px; margin-top:2px;">
+                        ${escapeHtml((e.target || "").substring(0, 50))} · ${fmtDate(e.timestamp)}
+                    </div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    // ---------------------------------------------------------
+    // RESPONSE MODAL
+    // ---------------------------------------------------------
+    function openResponseModal(story) {
+        current = story;
+        const draft = responses.find((r) => r.headline === story.headline);
+
+        $("#modalHeadline").textContent = story.headline;
+        $("#modalMeta").textContent = (story.source || "Unknown source");
+
+        if (story.ai_summary) {
+            $("#modalSummarySection").style.display = "block";
+            $("#modalSummary").textContent = story.ai_summary;
+        } else {
+            $("#modalSummarySection").style.display = "none";
+        }
+
+        if (draft && draft.draft) {
+            $("#modalDraft").value = draft.draft;
+        } else {
+            $("#modalDraft").value = "";
+            $("#modalDraft").placeholder = "No draft yet. Write your own response or ask MICT for a draft.";
+        }
+
+        $("#modalActionTaken").value = "";
+        $("#responseModal").classList.add("open");
+    }
+
+    function closeResponseModal() {
+        $("#responseModal").classList.remove("open");
+        current = null;
+    }
+
+    $("#modalCancel").onclick = closeResponseModal;
+    $("#responseModal").onclick = (e) => {
+        if (e.target.id === "responseModal") closeResponseModal();
+    };
+
+    $("#modalSave").addEventListener("click", async function () {
+        if (!current) return;
+        const btn = this;
+        const original = btn.textContent;
+        const text = $("#modalDraft").value.trim();
+        const action = $("#modalActionTaken").value.trim();
+
+        if (!text) {
+            showToast("Please enter a response.");
+            return;
+        }
+        if (!action) {
+            showToast("Please log what action was taken.");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Saving…";
+
+        try {
+            // Save the response as an approval
+            const r = await apiFetch("/responses/approve", {
+                method: "POST",
+                body: JSON.stringify({
+                    headline: current.headline,
+                    ministry: user.ministry,
+                    final_text: text,
+                }),
+            });
+
+            if (!r.ok) throw new Error("Approval failed");
+
+            // Log the action taken
+            const r2 = await apiFetch("/ministry/log-response", {
+                method: "POST",
+                body: JSON.stringify({
+                    headline: current.headline,
+                    action_taken: action,
+                }),
+            });
+
+            if (!r2.ok) throw new Error("Log failed");
+
+            closeResponseModal();
+            showToast("✅ Response approved and logged.");
+            await loadAll();
+        } catch (e) {
+            showToast("Error: " + e.message);
+        }
+
+        btn.disabled = false;
+        btn.textContent = original;
+    });
+
+    // ---------------------------------------------------------
+    // NOTIFY MICT MODAL
+    // ---------------------------------------------------------
+    function populateNotifyStories() {
+        const select = $("#notifyHeadline");
+        select.innerHTML = '<option value="">— Select a story —</option>' +
+            stories.map((s) => `<option value="${escapeHtml(s.headline)}">${escapeHtml(s.headline.substring(0, 70))}</option>`).join("");
+    }
+
+    $("#btnNotify").onclick = () => {
+        $("#notifyModal").classList.add("open");
+    };
+
+    function closeNotifyModal() {
+        $("#notifyModal").classList.remove("open");
+        $("#notifyMessage").value = "";
+    }
+
+    $("#notifyCancel").onclick = closeNotifyModal;
+    $("#notifyModal").onclick = (e) => {
+        if (e.target.id === "notifyModal") closeNotifyModal();
+    };
+
+    $("#notifySend").addEventListener("click", async function () {
+        const headline = $("#notifyHeadline").value;
+        const message = $("#notifyMessage").value.trim();
+
+        if (!headline) {
+            showToast("Please select a story.");
+            return;
+        }
+        if (!message) {
+            showToast("Please type a message.");
+            return;
+        }
+
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = "Sending…";
+
+        try {
+            const r = await apiFetch("/ministry/notify", {
+                method: "POST",
+                body: JSON.stringify({
+                    headline: headline,
+                    message: message,
+                }),
+            });
+            if (!r.ok) throw new Error("Send failed");
+
+            closeNotifyModal();
+            showToast("✅ MICT has been notified.");
+            await loadAll();
+        } catch (e) {
+            showToast("Error: " + e.message);
+        }
+
+        btn.disabled = false;
+        btn.textContent = "Send to MICT";
+    });
+
+    // ---------------------------------------------------------
+    // START
+    // ---------------------------------------------------------
+    loadAll();
+
+})();
+</script>
+
+</body>
+</html>

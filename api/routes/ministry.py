@@ -7,6 +7,7 @@ import os
 import sys
 from collections import Counter
 from datetime import datetime, timedelta
+from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -245,3 +246,69 @@ def notify_mict(req: NotifyRequest, user: dict = Depends(get_current_user)):
     )
 
     return {"status": "ok", "message": "MICT has been notified."}
+
+# ------------------------------------------------------------
+# LOG RESPONSE TAKEN
+# ------------------------------------------------------------
+class LogResponseRequest(BaseModel):
+    headline: str
+    action_taken: str
+
+
+@router.post("/log-response")
+def log_response(req: LogResponseRequest, user: dict = Depends(get_current_user)):
+    """
+    Ministry user records what they actually did in response to a story.
+    """
+    ministry = _require_ministry(user)
+
+    story = db.get_story(req.headline)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    if ministry.strip().lower() not in [x.strip().lower() for x in (story.get("oma") or [])]:
+        raise HTTPException(status_code=403, detail="Not your ministry's story")
+
+    # Save as an approval-like record so it appears in the brief's comment column
+    db.create_approval(
+        headline=req.headline,
+        ministry=ministry,
+        final_text=req.action_taken,
+        approved_by=user.get("username", "unknown"),
+    )
+
+    # Audit
+    db.log_audit(
+        action="ministry_response_logged",
+        user=user.get("username", "unknown"),
+        target=req.headline,
+        details={
+            "ministry": ministry,
+            "action": req.action_taken,
+        },
+    )
+
+    # Export DB to JSON so the report regenerates with this in the Comment column
+    try:
+        from src.db_export import export_all
+        export_all()
+    except Exception:
+        pass
+
+    # Regenerate the brief
+    import subprocess
+    report_script = os.path.join(PROJECT_ROOT, "src", "report.py")
+    try:
+        subprocess.run(
+            [sys.executable, report_script],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=PROJECT_ROOT,
+            timeout=60,
+        )
+    except subprocess.TimeoutExpired:
+        pass
+
+    return {"status": "ok", "headline": req.headline}

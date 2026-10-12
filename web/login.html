@@ -108,8 +108,13 @@
             btn.disabled = true;
 
             try {
-                await login(username, password);
-                window.location.href = "dashboard.html";
+                const data = await login(username, password);
+                // Route based on role
+                if (data.role === "ministry") {
+                    window.location.href = "ministry.html";
+                } else {
+                    window.location.href = "dashboard.html";
+                }
             } catch (err) {
                 errorBox.textContent = err.message || "Login failed";
                 errorBox.classList.remove("hidden");

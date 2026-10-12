@@ -1,72 +1,141 @@
 """
-GovPulse API — Response Drafts endpoints
+GovPulse API — Response Drafts
+Reads from SQLite. Ministry-scoped for ministry users.
 """
 
-import json
 import os
+import sys
+import subprocess
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
-from api.config import RESPONSES_FILE, APPROVALS_FILE
-from api.auth import get_current_user, require_admin
-from api.models import ApproveRequest
+
+# Make sure src/ is on the path
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from src import db
+from api.auth import get_current_user
 
 
 router = APIRouter(prefix="/responses", tags=["responses"])
 
 
-def _load_responses() -> list:
-    if not os.path.exists(RESPONSES_FILE):
-        return []
-    with open(RESPONSES_FILE, "r", encoding="utf-8-sig") as f:
-        return json.load(f)
+# ------------------------------------------------------------
+# MODELS
+# ------------------------------------------------------------
+class ApproveRequest(BaseModel):
+    headline: str
+    ministry: str
+    final_text: str
 
 
-def _load_approvals() -> dict:
-    if not os.path.exists(APPROVALS_FILE):
-        return {}
-    with open(APPROVALS_FILE, "r", encoding="utf-8-sig") as f:
-        return json.load(f)
-
-
-def _save_approvals(data: dict):
-    os.makedirs(os.path.dirname(APPROVALS_FILE), exist_ok=True)
-    with open(APPROVALS_FILE, "w", encoding="utf-8-sig") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-
+# ------------------------------------------------------------
+# LIST RESPONSES
+# ------------------------------------------------------------
 @router.get("")
 def list_responses(user: dict = Depends(get_current_user)):
-    """Return all response drafts."""
-    return {"responses": _load_responses()}
+    """Return all response drafts, scoped to the user's role."""
+    all_responses = db.get_all_responses()
+
+    if user.get("role") == "ministry":
+        target = (user.get("ministry") or "").strip().lower()
+        all_responses = [
+            r for r in all_responses
+            if (r.get("ministry") or "").strip().lower() == target
+        ]
+
+    # Reformat for frontend compatibility
+    formatted = []
+    for r in all_responses:
+        formatted.append({
+            "headline": r.get("headline"),
+            "oma": [r.get("ministry")] if r.get("ministry") else [],
+            "sentiment": "Negative",
+            "response": {
+                "draft": r.get("draft"),
+                "status": r.get("status"),
+                "ministry": r.get("ministry"),
+                "precedents": r.get("precedents", []),
+                "precedents_used": [
+                    p.get("filename") for p in (r.get("precedents") or [])
+                ],
+                "generated_at": r.get("generated_at"),
+            },
+        })
+
+    return {"responses": formatted}
 
 
+# ------------------------------------------------------------
+# LIST APPROVALS
+# ------------------------------------------------------------
 @router.get("/approvals")
 def list_approvals(user: dict = Depends(get_current_user)):
-    """Return the current approvals."""
-    return _load_approvals()
+    """Return current approvals, scoped to the user's role."""
+    if user.get("role") == "ministry":
+        target = (user.get("ministry") or "").strip().lower()
+        approvals_list = db.get_all_approvals()
+        approvals_list = [
+            a for a in approvals_list
+            if (a.get("ministry") or "").strip().lower() == target
+        ]
+        return {a["headline"]: a for a in approvals_list}
+    return db.get_approvals_as_dict()
 
 
+# ------------------------------------------------------------
+# APPROVE
+# ------------------------------------------------------------
 @router.post("/approve")
 def approve_response(
     req: ApproveRequest,
-    admin: dict = Depends(require_admin),
+    user: dict = Depends(get_current_user),
 ):
-    """Approve a response draft. Only admins can approve."""
-    from datetime import datetime
-    import subprocess
-    import sys
-    from api.config import PROJECT_ROOT
+    """
+    Approve a response draft.
+    - Admin/Analyst: any response
+    - Ministry: only their own ministry's responses
+    """
+    if user.get("role") not in ("admin", "analyst", "ministry"):
+        raise HTTPException(status_code=403, detail="Not allowed to approve")
 
-    approvals = _load_approvals()
-    approvals[req.headline] = {
-        "approved_at": datetime.now().isoformat(),
-        "ministry": req.ministry,
-        "final_text": req.final_text,
-        "approved_by": admin.get("username"),
-    }
-    _save_approvals(approvals)
+    # Ministry users can only approve for their own ministry
+    if user.get("role") == "ministry":
+        if req.ministry != user.get("ministry"):
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot approve responses for other ministries",
+            )
 
-    # Only regenerate the report — not the whole pipeline
+    # Save the approval
+    db.create_approval(
+        headline=req.headline,
+        ministry=req.ministry,
+        final_text=req.final_text,
+        approved_by=user.get("username", "unknown"),
+    )
+
+    # Audit
+    try:
+        db.log_audit(
+            action="approved",
+            user=user.get("username", "unknown"),
+            target=req.headline,
+            details={"ministry": req.ministry},
+        )
+    except Exception:
+        pass
+
+    # Export DB to JSON and regenerate the brief
+    try:
+        from src.db_export import export_all
+        export_all()
+    except Exception:
+        pass
+
     report_script = os.path.join(PROJECT_ROOT, "src", "report.py")
     try:
         subprocess.run(
@@ -79,34 +148,17 @@ def approve_response(
             timeout=60,
         )
     except subprocess.TimeoutExpired:
-        # Report regeneration timed out — but approval is saved
         return {
             "status": "approved",
             "headline": req.headline,
             "warning": "Brief regeneration timed out",
         }
-
-    return {"status": "approved", "headline": req.headline}
-    """Approve a response draft. Only admins can approve."""
-    from datetime import datetime
-
-    approvals = _load_approvals()
-    approvals[req.headline] = {
-        "approved_at": datetime.now().isoformat(),
-        "ministry": req.ministry,
-        "final_text": req.final_text,
-        "approved_by": admin.get("username"),
-    }
-    _save_approvals(approvals)
-
-    # Regenerate the brief
-    import subprocess
-    import sys
-    from api.config import PROJECT_ROOT
-    subprocess.run(
-        [sys.executable, os.path.join(PROJECT_ROOT, "src", "report.py")],
-        capture_output=True,
-        cwd=PROJECT_ROOT,
-    )
+    except Exception as e:
+        # Even if report fails, the approval is saved
+        return {
+            "status": "approved",
+            "headline": req.headline,
+            "warning": f"Brief regeneration failed: {e}",
+        }
 
     return {"status": "approved", "headline": req.headline}
