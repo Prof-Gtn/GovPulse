@@ -3,13 +3,18 @@ GovPulse API — Pipeline trigger endpoints
 """
 
 import os
-import subprocess
 import sys
+import subprocess
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from api.config import PROJECT_ROOT
-from api.auth import require_admin
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from src import db
+from api.auth import require_admin_or_analyst
 
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
@@ -25,13 +30,9 @@ STAGES = [
 
 
 @router.get("/stages")
-def list_stages(user: dict = Depends(require_admin)):
-    """Return the list of pipeline stages so the frontend can render them."""
+def list_stages(user: dict = Depends(require_admin_or_analyst)):
     return {
-        "stages": [
-            {"id": s["id"], "label": s["label"]}
-            for s in STAGES
-        ]
+        "stages": [{"id": s["id"], "label": s["label"]} for s in STAGES]
     }
 
 
@@ -40,7 +41,7 @@ class StageRequest(BaseModel):
 
 
 @router.post("/run-step")
-def run_step(req: StageRequest, admin: dict = Depends(require_admin)):
+def run_step(req: StageRequest, user: dict = Depends(require_admin_or_analyst)):
     """Run a single pipeline stage."""
     stage = next((s for s in STAGES if s["id"] == req.stage_id), None)
     if not stage:
@@ -72,41 +73,29 @@ def run_step(req: StageRequest, admin: dict = Depends(require_admin)):
             detail=f"Stage '{stage['label']}' failed: {r.stderr[-400:]}",
         )
 
+    # Audit
+    try:
+        db.log_audit(
+            action="pipeline_stage",
+            user=user.get("username", "unknown"),
+            target=stage["id"],
+            details={"label": stage["label"]},
+        )
+    except Exception:
+        pass
+
+    # Import DB back to JSON after pipeline (scraper updates JSON, we re-migrate)
+    try:
+        from src.migrate import migrate_stories, migrate_responses
+        # Actually — the pipeline writes to JSON. We need to re-import from JSON to DB.
+        # For now, sync stories from JSON into DB:
+        from src.db_import import import_from_json
+        import_from_json()
+    except Exception as e:
+        print(f"[PIPELINE] DB sync failed: {e}")
+
     return {
         "stage_id": stage["id"],
         "label": stage["label"],
         "status": "ok",
     }
-
-
-@router.post("/run")
-def run_all(admin: dict = Depends(require_admin)):
-    """Run all stages at once (kept for backwards compatibility)."""
-    results = []
-    for stage in STAGES:
-        script_path = os.path.join(PROJECT_ROOT, stage["script"])
-        try:
-            r = subprocess.run(
-                [sys.executable, script_path],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                cwd=PROJECT_ROOT,
-                timeout=stage["timeout"],
-            )
-        except subprocess.TimeoutExpired:
-            raise HTTPException(
-                status_code=504,
-                detail=f"Stage '{stage['label']}' timed out after {stage['timeout']}s",
-            )
-
-        if r.returncode != 0:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Stage '{stage['label']}' failed: {r.stderr[-400:]}",
-            )
-
-        results.append({"id": stage["id"], "status": "ok"})
-
-    return {"status": "complete", "stages": results}

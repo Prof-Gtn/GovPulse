@@ -3,39 +3,28 @@ GovPulse API — Daily Brief endpoints
 """
 
 import os
+import sys
+import subprocess
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from api.config import XLSX_FILE, PDF_FILE
-from api.auth import get_current_user, decode_token, load_users
+from api.auth import get_current_user, decode_token_for_download, require_admin_or_analyst
 
 
 router = APIRouter(prefix="/brief", tags=["brief"])
 
 
-def _get_user_from_query_or_header(token: Optional[str] = None):
-    """Accept a token from the query string (for browser downloads)."""
-    if not token:
-        raise HTTPException(status_code=401, detail="Missing token")
-    try:
-        payload = decode_token(token)
-        username = payload.get("sub")
-        if not username:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        users = load_users()
-        user = users.get(username)
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return {"username": username, **user}
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
-
-
 @router.get("/pdf")
 def download_pdf(token: Optional[str] = Query(None)):
     """Download the current PDF brief."""
-    _get_user_from_query_or_header(token)
+    decode_token_for_download(token)
     if not os.path.exists(PDF_FILE):
         raise HTTPException(status_code=404, detail="PDF not generated yet.")
     return FileResponse(
@@ -48,7 +37,7 @@ def download_pdf(token: Optional[str] = Query(None)):
 @router.get("/xlsx")
 def download_xlsx(token: Optional[str] = Query(None)):
     """Download the current Excel brief."""
-    _get_user_from_query_or_header(token)
+    decode_token_for_download(token)
     if not os.path.exists(XLSX_FILE):
         raise HTTPException(status_code=404, detail="Excel not generated yet.")
     return FileResponse(
@@ -66,13 +55,10 @@ def brief_exists(user: dict = Depends(get_current_user)):
         "xlsx": os.path.exists(XLSX_FILE),
     }
 
-@router.post("/regenerate")
-def regenerate_brief(user: dict = Depends(get_current_user)):
-    """Regenerate the brief from the existing analyzed data."""
-    import subprocess
-    import sys
-    from api.config import PROJECT_ROOT
 
+@router.post("/regenerate")
+def regenerate_brief(user: dict = Depends(require_admin_or_analyst)):
+    """Regenerate the brief from the existing data."""
     report_script = os.path.join(PROJECT_ROOT, "src", "report.py")
     try:
         r = subprocess.run(

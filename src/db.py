@@ -125,7 +125,6 @@ def delete_user(username: str):
 
 # ------------------------------------------------------------
 # STORIES
-# ------------------------------------------------------------
 def get_stories(sentiment=None, source=None, ministry=None, limit=None):
     """
     Return stories, optionally filtered.
@@ -152,11 +151,15 @@ def get_stories(sentiment=None, source=None, ministry=None, limit=None):
         s["oma"] = parse_json_field(s.get("oma"), [])
         s["entities"] = parse_json_field(s.get("entities"), {})
 
-    # Filter by ministry in Python (since oma is a JSON array in a text column)
+    # Filter by ministry in Python (oma is stored as a JSON array in a text column)
     if ministry:
+        target = ministry.strip().lower()
         stories = [
             s for s in stories
-            if ministry in (s.get("oma") or [])
+            if any(
+                (oma or "").strip().lower() == target
+                for oma in (s.get("oma") or [])
+            )
         ]
 
     return stories
