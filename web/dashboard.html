@@ -46,7 +46,7 @@
      TABS
      ============================================================ -->
 <nav class="tabs">
-    <div class="tabs-inner" id="tabsInner">
+    <div class="tabs-inner">
         <button class="tab active" data-tab="coverage">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 6h16M4 12h16M4 18h10"/>
@@ -73,7 +73,8 @@
             </svg>
             Audit
         </button>
-        <a href="admin.html" class="tab" id="tabAdmin" style="text-decoration:none; margin-left:auto;">
+        <a href="admin.html" class="tab" id="tabAdmin"
+           style="text-decoration:none; margin-left:auto;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
                 <circle cx="9" cy="7" r="4"/>
@@ -169,65 +170,103 @@
     </section>
 
     <!-- ========================================================
-         TAB: ANALYTICS
+         TAB: ANALYTICS (UPGRADED)
          ======================================================== -->
     <section id="tab-analytics" hidden>
 
         <div class="page-header">
             <div>
                 <h1>Analytics</h1>
-                <div class="sub">Sentiment, coverage, and institutional exposure</div>
+                <div class="sub">Sentiment, coverage, and institutional intelligence</div>
             </div>
         </div>
 
-        <div class="charts-grid">
+        <!-- ROW 1 — THREE KEY METRICS -->
+        <div class="stats-grid" style="grid-template-columns:repeat(3,1fr); margin-bottom:20px;">
+            <div class="stat-card total">
+                <div class="stat-label">Total Mentions</div>
+                <div class="stat-value" id="anaTotal" style="font-size:26px;">–</div>
+                <div class="stat-sub">in current cycle</div>
+            </div>
+            <div class="stat-card positive">
+                <div class="stat-label">Response Rate</div>
+                <div class="stat-value" id="anaResponseRate" style="font-size:26px;">–</div>
+                <div class="stat-sub" id="anaResponseSub">&nbsp;</div>
+            </div>
+            <div class="stat-card neutral">
+                <div class="stat-label">Ministries Covered</div>
+                <div class="stat-value" id="anaMinistries" style="font-size:26px;">–</div>
+                <div class="stat-sub">institutions mentioned</div>
+            </div>
+        </div>
+
+        <!-- ROW 2 — TREND + DONUT -->
+        <div class="charts-grid" style="grid-template-columns: 2fr 1fr; margin-bottom:20px;">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>7-Day Sentiment Trend</h2>
+                    <span class="note">Coverage over time</span>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-container" style="height:300px;">
+                        <canvas id="chartTrend"></canvas>
+                    </div>
+                </div>
+            </div>
+
             <div class="panel">
                 <div class="panel-header">
                     <h2>Sentiment Distribution</h2>
                     <span class="note">Share of coverage</span>
                 </div>
                 <div class="panel-body">
-                    <div class="chart-container">
+                    <div class="chart-container" style="height:300px;">
                         <canvas id="chartSentiment"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW 3 — STACKED BAR + OFFICIALS -->
+        <div class="charts-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:20px;">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Sentiment by Ministry</h2>
+                    <span class="note">Top 8 institutions</span>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-container" style="height:380px;">
+                        <canvas id="chartMinistryStack"></canvas>
                     </div>
                 </div>
             </div>
 
             <div class="panel">
                 <div class="panel-header">
-                    <h2>Coverage by Institution</h2>
-                    <span class="note">Top 8 by story count</span>
+                    <h2>Top Officials Mentioned</h2>
+                    <span class="note">By mention count</span>
                 </div>
                 <div class="panel-body">
-                    <div class="chart-container">
-                        <canvas id="chartMinistries"></canvas>
+                    <div class="chart-container" style="height:380px;">
+                        <canvas id="chartOfficials"></canvas>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="stats-row-3">
-            <div class="panel">
-                <div class="panel-header"><h2>Top Sources</h2></div>
-                <div class="panel-body">
-                    <div class="kv-list" id="analyticsSources"></div>
-                </div>
+        <!-- ROW 4 — SOURCES -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2>Coverage by Source</h2>
+                <span class="note">Story count per outlet</span>
             </div>
-
-            <div class="panel">
-                <div class="panel-header"><h2>Mapping Quality</h2></div>
-                <div class="panel-body">
-                    <div class="kv-list" id="analyticsMapping"></div>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-header"><h2>At a Glance</h2></div>
-                <div class="panel-body">
-                    <div class="kv-list" id="analyticsGlance"></div>
+            <div class="panel-body">
+                <div class="chart-container" style="height:260px;">
+                    <canvas id="chartSources"></canvas>
                 </div>
             </div>
         </div>
+
     </section>
 
     <!-- ========================================================
@@ -299,8 +338,9 @@
             </div>
         </div>
     </section>
-        <!-- ========================================================
-         TAB: AUDIT TRAIL
+
+    <!-- ========================================================
+         TAB: AUDIT
          ======================================================== -->
     <section id="tab-audit" hidden>
 
@@ -368,6 +408,7 @@
         </div>
 
     </section>
+
 </main>
 
 <!-- ============================================================
@@ -397,16 +438,17 @@
         </div>
 
         <div class="modal-footer" id="modalFooter">
-    <button class="btn btn-ghost" id="modalCancel">Cancel</button>
-    <button class="btn btn-secondary" id="modalGenerate" style="display:none;">
-        ⟳ Generate Draft
-    </button>
-    <button class="btn btn-primary" id="modalApprove">
-        Approve &amp; Regenerate Brief
-    </button>
-</div>
+            <button class="btn btn-ghost" id="modalCancel">Cancel</button>
+            <button class="btn btn-secondary" id="modalGenerate" style="display:none;">
+                ⟳ Generate Draft
+            </button>
+            <button class="btn btn-primary" id="modalApprove">
+                Approve &amp; Regenerate Brief
+            </button>
+        </div>
     </div>
 </div>
+
 <!-- ============================================================
      EDIT STORY MODAL
      ============================================================ -->
@@ -424,13 +466,11 @@
                 <input type="text" class="modal-textarea" id="editHeadlineInput"
                        style="min-height:auto;padding:10px;" />
             </div>
-
             <div class="modal-section">
                 <div class="modal-section-label">Summary</div>
                 <textarea class="modal-textarea" id="editSummaryInput"
                           style="min-height:120px;"></textarea>
             </div>
-
             <div class="modal-section">
                 <div class="modal-section-label">Sentiment</div>
                 <select id="editSentimentInput"
@@ -440,15 +480,11 @@
                     <option value="Negative">Negative</option>
                 </select>
             </div>
-
             <div class="modal-section">
                 <div class="modal-section-label">Institution (O/M/A)</div>
                 <input type="text" class="modal-textarea" id="editOmaInput"
-                       placeholder="Comma-separated list, or leave empty for Unmapped"
+                       placeholder="Comma-separated list"
                        style="min-height:auto;padding:10px;" />
-                <div class="note" style="margin-top:6px;font-size:11px;color:var(--mute);">
-                    Separate multiple institutions with commas
-                </div>
             </div>
         </div>
 
@@ -467,20 +503,8 @@
     "use strict";
 
     if (!requireLogin()) return;
-    
-        // Hide admin link for non-admins
-    document.addEventListener("DOMContentLoaded", () => {
-        const user = getUser() || {};
-        if (user.role !== "admin") {
-            const adminTab = document.getElementById("tabAdmin");
-            if (adminTab) adminTab.style.display = "none";
-        }
-    });
 
-    // ---------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------
-    const $  = (s) => document.querySelector(s);
+    const $ = (s) => document.querySelector(s);
     const $$ = (s) => [...document.querySelectorAll(s)];
 
     const escapeHtml = (s) =>
@@ -520,16 +544,12 @@
 
     const timestamp = () =>
         new Date().toLocaleString("en-GB", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
+            weekday: "long", day: "numeric", month: "long",
+            year: "numeric", hour: "2-digit", minute: "2-digit",
         });
 
     // ---------------------------------------------------------
-    // State
+    // STATE
     // ---------------------------------------------------------
     let stories = [];
     let responses = [];
@@ -538,11 +558,12 @@
     let filter = "all";
     let current = null;
     let charts = {};
+    let editingHeadline = null;
 
     const ORDER = { negative: 0, neutral: 1, positive: 2 };
 
     // ---------------------------------------------------------
-    // Auth / user
+    // AUTH
     // ---------------------------------------------------------
     const user = getUser() || {};
     $("#userName").textContent = user.name || user.username || "User";
@@ -550,10 +571,16 @@
         .split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
     $("#btnLogout").onclick = logout;
 
+    // Hide admin link if not admin
+    if (user.role !== "admin") {
+        const adminTab = document.getElementById("tabAdmin");
+        if (adminTab) adminTab.style.display = "none";
+    }
+
     // ---------------------------------------------------------
-    // Tabs
+    // TABS
     // ---------------------------------------------------------
-        function switchTab(name) {
+    function switchTab(name) {
         $$(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
         ["coverage", "analytics", "brief", "audit"].forEach((n) => {
             $("#tab-" + n).hidden = n !== name;
@@ -564,10 +591,12 @@
         history.replaceState(null, "", "#" + name);
     }
 
-    $$(".tab").forEach((b) => (b.onclick = () => switchTab(b.dataset.tab)));
+    $$(".tab").forEach((b) => {
+        if (b.dataset.tab) b.onclick = () => switchTab(b.dataset.tab);
+    });
 
     // ---------------------------------------------------------
-    // Data
+    // DATA
     // ---------------------------------------------------------
     async function getJSON(path) {
         const r = await apiFetch(path);
@@ -579,13 +608,11 @@
         try {
             const d = await getJSON("/stories");
             stories = (d.stories || []).slice().sort(
-                (a, b) =>
-                    ORDER[normalizeSentiment(a.sentiment)] -
-                    ORDER[normalizeSentiment(b.sentiment)]
+                (a, b) => ORDER[normalizeSentiment(a.sentiment)] - ORDER[normalizeSentiment(b.sentiment)]
             );
         } catch (e) {
             $("#storiesBody").innerHTML =
-                '<tr><td colspan="6" class="empty">Could not load stories. Check the API connection.</td></tr>';
+                '<tr><td colspan="6" class="empty">Could not load stories.</td></tr>';
             return;
         }
 
@@ -606,7 +633,7 @@
     }
 
     // ---------------------------------------------------------
-    // Coverage
+    // COVERAGE
     // ---------------------------------------------------------
     const count = (k) => stories.filter((s) => normalizeSentiment(s.sentiment) === k).length;
     const responseFor = (h) => responses.find((r) => r.headline === h);
@@ -626,25 +653,19 @@
         $("#statPositiveSub").textContent = pct(pos);
         $("#statNeutralSub").textContent  = pct(neu);
         $("#statNegativeSub").textContent = pct(neg);
-        $("#statTotalSub").textContent =
-            stories.filter(isMapped).length + " mapped to a ministry";
+        $("#statTotalSub").textContent = stories.filter(isMapped).length + " mapped";
 
-        // Filter chips
         const chips = [
             ["all", "All", total],
             ["negative", "Negative", neg],
             ["neutral", "Neutral", neu],
             ["positive", "Positive", pos],
         ];
-        $("#chips").innerHTML = chips
-            .map(
-                (c) =>
-                    `<button class="chip ${filter === c[0] ? "active" : ""}" data-filter="${c[0]}">
-                        ${c[1]}
-                        <span class="chip-count">${c[2]}</span>
-                    </button>`
-            )
-            .join("");
+        $("#chips").innerHTML = chips.map((c) =>
+            `<button class="chip ${filter === c[0] ? "active" : ""}" data-filter="${c[0]}">
+                ${c[1]} <span class="chip-count">${c[2]}</span>
+            </button>`
+        ).join("");
         $$("#chips .chip").forEach((el) => {
             el.onclick = () => {
                 filter = el.dataset.filter;
@@ -652,7 +673,6 @@
             };
         });
 
-        // Filter + search
         const q = $("#searchInput").value.trim().toLowerCase();
         const filtered = stories.filter((s) => {
             if (filter !== "all" && normalizeSentiment(s.sentiment) !== filter) return false;
@@ -663,52 +683,38 @@
         $("#shownCount").textContent = `${filtered.length} of ${total} shown`;
 
         if (!filtered.length) {
-            $("#storiesBody").innerHTML =
-                '<tr><td colspan="6" class="empty">No stories match the current filter.</td></tr>';
+            $("#storiesBody").innerHTML = '<tr><td colspan="6" class="empty">No stories match.</td></tr>';
             return;
         }
 
-        $("#storiesBody").innerHTML = filtered
-            .map((story, i) => {
-                const sent = normalizeSentiment(story.sentiment);
-                const oma = omaList(story);
-                const idx = stories.indexOf(story);
+        $("#storiesBody").innerHTML = filtered.map((story, i) => {
+            const sent = normalizeSentiment(story.sentiment);
+            const oma = omaList(story);
+            const idx = stories.indexOf(story);
+            const action = sent === "negative" && oma.length
+                ? `<button class="btn btn-primary btn-sm" data-review="${idx}">Review</button>`
+                : `<span style="color:var(--rule); font-size:12px;">—</span>`;
+            const headline = story.url
+                ? `<a href="${escapeHtml(story.url)}" target="_blank" rel="noopener">${escapeHtml(story.headline)}</a>`
+                : escapeHtml(story.headline);
+            const gov = story.government_source ? `<span class="gov-tag">GOV</span>` : "";
+            const omaHtml = oma.length ? escapeHtml(oma.join(", ")) : `<span class="unmapped">Unmapped</span>`;
 
-                const action =
-                    sent === "negative" && oma.length
-                        ? `<button class="btn btn-primary btn-sm" data-review="${idx}">Review</button>`
-                        : `<span style="color:var(--rule);font-size:12px;">—</span>`;
-
-                const headline = story.url
-                    ? `<a href="${escapeHtml(story.url)}" target="_blank" rel="noopener">${escapeHtml(story.headline)}</a>`
-                    : escapeHtml(story.headline);
-
-                const gov = story.government_source
-                    ? `<span class="gov-tag">GOV</span>`
-                    : "";
-
-                const omaHtml = oma.length
-                    ? escapeHtml(oma.join(", "))
-                    : `<span class="unmapped">Unmapped</span>`;
-
-                return `
-                    <tr>
-                        <td class="row-num">${String(i + 1).padStart(2, "0")}</td>
-                        <td data-label="Source" style="font-size:12.5px;color:var(--ink-2);font-weight:500;">
-                            ${escapeHtml(story.source || "Unknown")}
-                        </td>
-                        <td class="headline-cell">${headline}${gov}</td>
-                        <td data-label="Sentiment">
-                            <span class="pill ${sent}">${capitalize(sent)}</span>
-                        </td>
-                        <td data-label="Institution" class="oma-cell ${oma.length ? "" : "unmapped"}">
-                            ${omaHtml}
-                        </td>
-                        <td data-label="Action">${action}</td>
-                    </tr>
-                `;
-            })
-            .join("");
+            return `
+                <tr>
+                    <td class="row-num">${String(i + 1).padStart(2, "0")}</td>
+                    <td data-label="Source" style="font-size:12.5px;color:var(--ink-2);font-weight:500;">
+                        ${escapeHtml(story.source || "Unknown")}
+                    </td>
+                    <td class="headline-cell">${headline}${gov}</td>
+                    <td data-label="Sentiment"><span class="pill ${sent}">${capitalize(sent)}</span></td>
+                    <td data-label="Institution" class="oma-cell ${oma.length ? "" : "unmapped"}">
+                        ${omaHtml}
+                    </td>
+                    <td data-label="Action">${action}</td>
+                </tr>
+            `;
+        }).join("");
 
         $$("#storiesBody button[data-review]").forEach((btn) => {
             btn.onclick = () => openResponseModal(stories[btn.dataset.review]);
@@ -718,478 +724,120 @@
     $("#searchInput").oninput = renderCoverage;
 
     // ---------------------------------------------------------
-    // Modal
+    // ANALYTICS — UPGRADED
     // ---------------------------------------------------------
-        function openResponseModal(story) {
-        current = story;
-        const r = responseFor(story.headline);
-        const oma = omaList(story);
-        const approved = approvals[story.headline];
-
-        $("#modalHeadline").textContent = story.headline;
-        $("#modalMeta").textContent =
-            (story.source || "Unknown source") +
-            (oma.length ? " · " + oma.join(", ") : "");
-
-        const summarySection = $("#modalSummarySection");
-        if (story.ai_summary) {
-            summarySection.style.display = "block";
-            $("#modalSummary").textContent = story.ai_summary;
-        } else {
-            summarySection.style.display = "none";
-        }
-
-        const rr = (r && r.response) || {};
-        const hasDraft = rr.status === "ok" && rr.draft;
-        const draftFailed = rr.status === "failed";
-
-        $("#modalDraft").value =
-            (approved && (approved.final_text || approved.text)) || rr.draft || "";
-
-        // Set placeholder + status text
-        if (hasDraft) {
-            $("#modalDraft").placeholder = "";
-            $("#modalStatus").textContent = approved
-                ? "Approved"
-                : "Draft · " + capitalize(rr.status);
-        } else if (draftFailed) {
-            $("#modalDraft").placeholder =
-                "No draft was generated. Click 'Generate Draft' to try again.";
-            $("#modalStatus").innerHTML =
-                '<span style="color:var(--negative);">Draft failed</span>';
-        } else {
-            $("#modalDraft").placeholder =
-                "No draft has been generated yet for this story.";
-            $("#modalStatus").textContent = "";
-        }
-
-        // Show/hide the Generate button based on state
-        const genBtn = $("#modalGenerate");
-        const appBtn = $("#modalApprove");
-        if (hasDraft || approved) {
-            genBtn.style.display = "none";
-            appBtn.disabled = false;
-        } else {
-            genBtn.style.display = "inline-flex";
-            appBtn.disabled = true;  // can't approve what doesn't exist
-        }
-
-        $("#modalOverlay").classList.add("open");
-        setTimeout(() => $("#modalDraft").focus(), 100);
-    }
-
-    function closeModal() {
-        $("#modalOverlay").classList.remove("open");
-    }
-
-    $("#modalCancel").onclick = closeModal;
-    $("#modalOverlay").onclick = (e) => {
-        if (e.target.id === "modalOverlay") closeModal();
-    };
-    document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") closeModal();
-    });
-
-            // ---------------------------------------------------------
-    // Approve response
-    // ---------------------------------------------------------
-    document.getElementById("modalApprove").addEventListener("click", async function () {
-        console.log(">>> Approve clicked");
-
-        if (!current) {
-            console.warn(">>> No current story");
-            return;
-        }
-
-        const text = document.getElementById("modalDraft").value.trim();
-        if (!text) {
-            showToast("Enter response text before approving.");
-            return;
-        }
-
-        const btn = this;
-        const original = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = "Approving…";
-
-        const r = responseFor(current.headline);
-        const ministry =
-            (r && r.response && r.response.ministry) ||
-            omaList(current)[0] ||
-            "Government";
-
-        console.log(">>> Sending approve:", {
-            headline: current.headline,
-            ministry,
-            textLength: text.length,
-        });
-
-        try {
-            const res = await apiFetch("/responses/approve", {
-                method: "POST",
-                body: JSON.stringify({
-                    headline: current.headline,
-                    ministry,
-                    final_text: text,
-                }),
-            });
-
-            console.log(">>> Response status:", res.status);
-
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.detail || `HTTP ${res.status}`);
-            }
-
-            const data = await res.json();
-            console.log(">>> Approve success:", data);
-
-            approvals[current.headline] = {
-                approved_at: new Date().toISOString(),
-                ministry,
-                final_text: text,
-                approved_by: (getUser() || {}).username,
-            };
-
-            closeModal();
-            showToast("✅ Response approved.");
-
-            await loadAll();
-        } catch (e) {
-            console.error(">>> Approve failed:", e);
-            showToast("Approval failed: " + e.message);
-        }
-
-        btn.disabled = false;
-        btn.textContent = original;
-    });
-
-
-        $("#modalGenerate").onclick = async () => {
-        if (!current) return;
-        const btn = $("#modalGenerate");
-        const original = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = "Generating…";
-
-        try {
-            const r = await apiFetch("/responses/generate", {
-                method: "POST",
-                body: JSON.stringify({ headline: current.headline }),
-            });
-            if (!r.ok) {
-                const err = await r.json().catch(() => ({}));
-                throw new Error(err.detail || "Generation failed");
-            }
-
-            const result = await r.json();
-            if (result.status !== "ok" || !result.draft) {
-                throw new Error(result.reason || "No draft produced");
-            }
-
-            // Fill the textarea with the new draft
-            $("#modalDraft").value = result.draft;
-            $("#modalStatus").textContent = "Draft · Ready";
-            $("#modalDraft").placeholder = "";
-
-            // Flip button visibility
-            $("#modalGenerate").style.display = "none";
-            $("#modalApprove").disabled = false;
-
-            // Update the local cache so approvals work
-            const existing = responses.findIndex(r => r.headline === current.headline);
-            const newEntry = {
-                headline: current.headline,
-                oma: omaList(current),
-                sentiment: current.sentiment,
-                response: result,
-            };
-            if (existing >= 0) responses[existing] = newEntry;
-            else responses.push(newEntry);
-
-            showToast("✅ Draft generated.");
-        } catch (e) {
-            showToast("Generation failed: " + e.message);
-        }
-
-        btn.disabled = false;
-        btn.textContent = original;
-    };
-
-        // ---------------------------------------------------------
-    // Edit Story Modal
-    // ---------------------------------------------------------
-    let editingHeadline = null;
-
-    function openEditModal(headline) {
-        const story = stories.find((s) => s.headline === headline);
-        if (!story) {
-            showToast("Story not found.");
-            return;
-        }
-
-        editingHeadline = headline;
-
-        $("#editHeadline").textContent = "Editing story";
-        $("#editHeadlineInput").value = story.headline || "";
-        $("#editSummaryInput").value = story.ai_summary || "";
-        $("#editSentimentInput").value = normalizeSentiment(story.sentiment) === "positive" ? "Positive"
-                                        : normalizeSentiment(story.sentiment) === "negative" ? "Negative"
-                                        : "Neutral";
-        $("#editOmaInput").value = omaList(story).join(", ");
-
-        $("#editModalOverlay").classList.add("open");
-    }
-
-    function closeEditModal() {
-        $("#editModalOverlay").classList.remove("open");
-        editingHeadline = null;
-    }
-
-    $("#editCancel").onclick = closeEditModal;
-    $("#editModalOverlay").onclick = (e) => {
-        if (e.target.id === "editModalOverlay") closeEditModal();
-    };
-
-    $("#editSave").addEventListener("click", async function () {
-        if (!editingHeadline) return;
-
-        const btn = this;
-        const original = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = "Saving…";
-
-        const newHeadline = $("#editHeadlineInput").value.trim();
-        const newSummary = $("#editSummaryInput").value.trim();
-        const newSentiment = $("#editSentimentInput").value;
-        const newOmaRaw = $("#editOmaInput").value.trim();
-
-        const newOma = newOmaRaw
-            ? newOmaRaw.split(",").map((x) => x.trim()).filter(Boolean)
-            : [];
-
-        try {
-            const res = await apiFetch("/stories/edit", {
-                method: "PUT",
-                body: JSON.stringify({
-                    headline: editingHeadline,
-                    new_headline: newHeadline || editingHeadline,
-                    ai_summary: newSummary,
-                    sentiment: newSentiment,
-                    oma: newOma,
-                }),
-            });
-
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.detail || `HTTP ${res.status}`);
-            }
-
-            // Regenerate the brief so the PDF reflects the edit
-            await apiFetch("/brief/regenerate", { method: "POST" }).catch(() => {});
-
-            closeEditModal();
-            showToast("✅ Story updated. Brief regenerated.");
-            await loadAll();
-        } catch (e) {
-            console.error("Edit failed:", e);
-            showToast("Save failed: " + e.message);
-        }
-
-        btn.disabled = false;
-        btn.textContent = original;
-    });
-
-    // ---------------------------------------------------------
-    // Pipeline
-    // ---------------------------------------------------------
-            async function runPipeline(btn, label) {
-        const original = btn.textContent;
-        btn.disabled = true;
-
-        // ---- Build the non-blocking progress widget ----
-        const widget = document.createElement("div");
-        widget.className = "pipeline-widget show";
-        widget.id = "pipelineWidget";
-        widget.innerHTML = `
-            <div class="pipeline-widget__header">
-                <div class="pipeline-widget__title">
-                    <span class="spin">⟳</span>
-                    Running Pipeline
-                </div>
-                <button class="pipeline-widget__close" id="plgClose">×</button>
-            </div>
-            <div class="pipeline-widget__bar">
-                <div class="pipeline-widget__fill" id="plgFill" style="width:0%;"></div>
-            </div>
-            <div class="pipeline-widget__stage" id="plgStage">
-                <strong>Starting…</strong>
-            </div>
-        `;
-        document.body.appendChild(widget);
-
-        // Close button — dismisses but pipeline keeps running
-        document.getElementById("plgClose").onclick = () => {
-            widget.classList.remove("show");
-            setTimeout(() => widget.remove(), 200);
-        };
-
-        // Fetch stage list
-        let stages = [];
-        try {
-            const sr = await apiFetch("/pipeline/stages");
-            const sd = await sr.json();
-            stages = sd.stages || [];
-        } catch (e) {
-            showToast("Could not load pipeline stages.");
-            widget.remove();
-            btn.disabled = false;
-            btn.textContent = original;
-            return;
-        }
-
-        // Run each stage
-        let failed = false;
-        for (let i = 0; i < stages.length; i++) {
-            const s = stages[i];
-            document.getElementById("plgStage").innerHTML =
-                `<strong>${s.label}…</strong>`;
-            document.getElementById("plgFill").style.width =
-                `${(i / stages.length) * 100}%`;
-
-            try {
-                const r = await apiFetch("/pipeline/run-step", {
-                    method: "POST",
-                    body: JSON.stringify({ stage_id: s.id }),
-                });
-                if (!r.ok) {
-                    const err = await r.json().catch(() => ({}));
-                    document.getElementById("plgStage").innerHTML =
-                        `<span style="color:var(--negative);">Failed: ${s.label}</span>`;
-                    widget.classList.add("error");
-                    failed = true;
-                    break;
-                }
-                document.getElementById("plgFill").style.width =
-                    `${((i + 1) / stages.length) * 100}%`;
-            } catch (e) {
-                document.getElementById("plgStage").innerHTML =
-                    `<span style="color:var(--negative);">Error: ${s.label}</span>`;
-                widget.classList.add("error");
-                failed = true;
-                break;
-            }
-        }
-
-        // Final state
-        if (!failed) {
-            widget.classList.add("done");
-            document.getElementById("plgStage").innerHTML =
-                `<span style="color:var(--positive);">✅ Complete</span>`;
-            document.getElementById("plgFill").style.width = "100%";
-            showToast("Pipeline complete. Data refreshed.");
-            await loadAll();
-        } else {
-            showToast("Pipeline failed. See progress widget for details.");
-        }
-
-        btn.disabled = false;
-        btn.textContent = original;
-
-        // Auto-dismiss after a delay
-        setTimeout(() => {
-            if (widget.parentNode) {
-                widget.classList.remove("show");
-                setTimeout(() => widget.remove(), 200);
-            }
-        }, failed ? 8000 : 2500);
-    }
-
-    $("#btnRun").onclick = () => runPipeline($("#btnRun"), "Running…");
-       $("#btnRegenerate").onclick = async function () {
-        const btn = this;
-        const original = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = "Regenerating…";
-
-        try {
-            const r = await apiFetch("/brief/regenerate", { method: "POST" });
-            if (!r.ok) {
-                const err = await r.json().catch(() => ({}));
-                throw new Error(err.detail || `HTTP ${r.status}`);
-            }
-            showToast("✅ Brief regenerated.");
-            await loadAll();
-        } catch (e) {
-            showToast("Regeneration failed: " + e.message);
-        }
-
-        btn.disabled = false;
-        btn.textContent = original;
-    };
-
-    // ---------------------------------------------------------
-    // Downloads
-    // ---------------------------------------------------------
-        function download(kind) {
-        const t = getToken();
-        const url = `${API_BASE}/brief/${kind}?token=${encodeURIComponent(t)}&t=${Date.now()}`;
-        window.open(url, "_blank");
-    }
-
-    $("#btnDownloadPdf").onclick = () => download("pdf");
-    $("#btnDownloadXlsx").onclick = () => download("xlsx");
-
-    // ---------------------------------------------------------
-    // Analytics
-    // ---------------------------------------------------------
-    function tally(arr) {
-        const m = {};
-        arr.forEach((k) => (m[k] = (m[k] || 0) + 1));
-        return Object.entries(m).sort((a, b) => b[1] - a[1]);
-    }
-
-    function kvList(rows) {
-        return rows
-            .map(
-                ([k, v]) =>
-                    `<div class="kv"><span class="k">${escapeHtml(k)}</span><span class="v">${v}</span></div>`
-            )
-            .join("");
-    }
-
-    function renderAnalytics() {
+    async function renderAnalytics() {
         if (!window.Chart) return;
 
+        // Destroy old charts
         Object.values(charts).forEach((c) => c.destroy());
+        charts = {};
 
         const css = getComputedStyle(document.documentElement);
         const colorVar = (n) => css.getPropertyValue(n).trim();
 
         Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
-        Chart.defaults.font.size = 12;
+        Chart.defaults.font.size = 11;
         Chart.defaults.color = "#475569";
 
+        // ---------- Row 1: Key metrics ----------
+        const total = stories.length;
+        $("#anaTotal").textContent = total;
+
+        let responseRate = null;
+        try {
+            responseRate = await getJSON("/stories/analytics/response-rate");
+            $("#anaResponseRate").textContent = responseRate.rate + "%";
+            $("#anaResponseSub").textContent =
+                responseRate.responded + " of " + responseRate.total_negative + " negative stories";
+        } catch (e) {
+            $("#anaResponseRate").textContent = "—";
+        }
+
+        // Ministries count
+        const ministries = new Set();
+        stories.forEach((s) => omaList(s).forEach((m) => {
+            if (m !== "Unmapped") ministries.add(m);
+        }));
+        $("#anaMinistries").textContent = ministries.size;
+
+        // ---------- Row 2a: 7-Day Trend ----------
+        try {
+            const trendData = await getJSON("/stories/analytics/trend");
+            const trend = trendData.trend || [];
+
+            const labels = trend.map((d) => {
+                const day = new Date(d.date);
+                return day.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+            });
+
+            charts.trend = new Chart($("#chartTrend"), {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: "Positive",
+                            data: trend.map((d) => d.Positive),
+                            borderColor: colorVar("--positive"),
+                            backgroundColor: "rgba(4, 120, 87, 0.06)",
+                            tension: 0.35,
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointBackgroundColor: colorVar("--positive"),
+                        },
+                        {
+                            label: "Neutral",
+                            data: trend.map((d) => d.Neutral),
+                            borderColor: "#94A3B8",
+                            backgroundColor: "rgba(148, 163, 184, 0.06)",
+                            tension: 0.35,
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointBackgroundColor: "#94A3B8",
+                        },
+                        {
+                            label: "Negative",
+                            data: trend.map((d) => d.Negative),
+                            borderColor: colorVar("--negative"),
+                            backgroundColor: "rgba(185, 28, 28, 0.06)",
+                            tension: 0.35,
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointBackgroundColor: colorVar("--negative"),
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: "bottom", labels: { boxWidth: 10, boxHeight: 10, padding: 14 } },
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "#EEF2F6" } },
+                        x: { grid: { display: false } },
+                    },
+                },
+            });
+        } catch (e) {
+            console.error("Trend chart failed:", e);
+        }
+
+        // ---------- Row 2b: Sentiment Donut ----------
         const pos = count("positive");
         const neu = count("neutral");
         const neg = count("negative");
-        const total = stories.length;
 
-        // Donut
         charts.sentiment = new Chart($("#chartSentiment"), {
             type: "doughnut",
             data: {
                 labels: ["Positive", "Neutral", "Negative"],
                 datasets: [{
                     data: [pos, neu, neg],
-                    backgroundColor: [
-                        colorVar("--positive"),
-                        "#94A3B8",
-                        colorVar("--negative"),
-                    ],
+                    backgroundColor: [colorVar("--positive"), "#94A3B8", colorVar("--negative")],
                     borderColor: "#FFFFFF",
                     borderWidth: 3,
-                    hoverOffset: 4,
                 }],
             },
             options: {
@@ -1197,98 +845,176 @@
                 maintainAspectRatio: false,
                 cutout: "62%",
                 plugins: {
-                    legend: {
-                        position: "bottom",
-                        labels: {
-                            padding: 16,
-                            boxWidth: 10,
-                            boxHeight: 10,
-                            usePointStyle: false,
-                            font: { size: 12 },
-                        },
-                    },
+                    legend: { position: "bottom", labels: { boxWidth: 10, boxHeight: 10, padding: 14 } },
                     tooltip: {
                         callbacks: {
-                            label: (ctx) =>
-                                ` ${ctx.label}: ${ctx.raw} (${total ? ((ctx.raw / total) * 100).toFixed(1) : 0}%)`,
+                            label: (ctx) => {
+                                const t = stories.length || 1;
+                                return ` ${ctx.label}: ${ctx.raw} (${((ctx.raw / t) * 100).toFixed(1)}%)`;
+                            },
                         },
                     },
                 },
             },
         });
 
-        // Bar
-        const ministry = tally(stories.flatMap(omaList)).slice(0, 8);
-        charts.ministries = new Chart($("#chartMinistries"), {
+        // ---------- Row 3a: Stacked Bar — Sentiment by Ministry ----------
+        const ministryMap = {};
+        stories.forEach((s) => {
+            const sent = s.sentiment || "Neutral";
+            omaList(s).forEach((m) => {
+                if (m === "Unmapped") return;
+                if (!ministryMap[m]) ministryMap[m] = { Positive: 0, Neutral: 0, Negative: 0 };
+                ministryMap[m][sent] = (ministryMap[m][sent] || 0) + 1;
+            });
+        });
+
+        const ministryEntries = Object.entries(ministryMap)
+            .map(([name, counts]) => ({
+                name,
+                counts,
+                total: counts.Positive + counts.Neutral + counts.Negative,
+            }))
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 8);
+
+        const shortName = (n) => n
+            .replace("Ministry of ", "")
+            .replace("Office of the ", "")
+            .substring(0, 32);
+
+        charts.ministryStack = new Chart($("#chartMinistryStack"), {
             type: "bar",
             data: {
-                labels: ministry.map((m) => m[0]),
-                datasets: [{
-                    data: ministry.map((m) => m[1]),
-                    backgroundColor: colorVar("--mict-navy"),
-                    borderRadius: 4,
-                    barThickness: 18,
-                }],
+                labels: ministryEntries.map((m) => shortName(m.name)),
+                datasets: [
+                    {
+                        label: "Positive",
+                        data: ministryEntries.map((m) => m.counts.Positive),
+                        backgroundColor: colorVar("--positive"),
+                        borderRadius: 3,
+                    },
+                    {
+                        label: "Neutral",
+                        data: ministryEntries.map((m) => m.counts.Neutral),
+                        backgroundColor: "#94A3B8",
+                        borderRadius: 3,
+                    },
+                    {
+                        label: "Negative",
+                        data: ministryEntries.map((m) => m.counts.Negative),
+                        backgroundColor: colorVar("--negative"),
+                        borderRadius: 3,
+                    },
+                ],
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 indexAxis: "y",
-                plugins: { legend: { display: false } },
+                plugins: {
+                    legend: { position: "bottom", labels: { boxWidth: 10, boxHeight: 10, padding: 12 } },
+                },
                 scales: {
                     x: {
+                        stacked: true,
                         beginAtZero: true,
-                        ticks: { precision: 0, font: { size: 11 } },
+                        ticks: { precision: 0 },
                         grid: { color: "#EEF2F6" },
                     },
                     y: {
+                        stacked: true,
+                        grid: { display: false },
+                        ticks: { font: { size: 10 } },
+                    },
+                },
+            },
+        });
+
+        // ---------- Row 3b: Top Officials ----------
+        try {
+            const officialsData = await getJSON("/stories/analytics/officials");
+            const officials = (officialsData.officials || []).slice(0, 10);
+
+            charts.officials = new Chart($("#chartOfficials"), {
+                type: "bar",
+                data: {
+                    labels: officials.map((o) => o.name.length > 26 ? o.name.substring(0, 26) + "…" : o.name),
+                    datasets: [{
+                        data: officials.map((o) => o.count),
+                        backgroundColor: colorVar("--mict-navy"),
+                        borderRadius: 4,
+                        barThickness: 16,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: "y",
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 },
+                            grid: { color: "#EEF2F6" },
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { font: { size: 10 } },
+                        },
+                    },
+                },
+            });
+        } catch (e) {
+            console.error("Officials chart failed:", e);
+        }
+
+        // ---------- Row 4: Sources ----------
+        const sourceCounts = {};
+        stories.forEach((s) => {
+            const src = s.source || "Unknown";
+            sourceCounts[src] = (sourceCounts[src] || 0) + 1;
+        });
+        const sourceEntries = Object.entries(sourceCounts).sort((a, b) => b[1] - a[1]);
+
+        charts.sources = new Chart($("#chartSources"), {
+            type: "bar",
+            data: {
+                labels: sourceEntries.map((e) => e[0]),
+                datasets: [{
+                    data: sourceEntries.map((e) => e[1]),
+                    backgroundColor: [
+                        colorVar("--mict-navy"),
+                        colorVar("--mict-blue"),
+                        colorVar("--mict-sky"),
+                        "#94A3B8",
+                        "#CBD5E1",
+                    ],
+                    borderRadius: 4,
+                    barThickness: 32,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 },
+                        grid: { color: "#EEF2F6" },
+                    },
+                    x: {
                         grid: { display: false },
                         ticks: { font: { size: 11 } },
                     },
                 },
             },
         });
-
-        // Sources
-        const sources = tally(stories.map((s) => s.source || "Unknown")).slice(0, 5);
-        $("#analyticsSources").innerHTML = sources.length
-            ? kvList(sources)
-            : '<div class="kv"><span class="k">No data</span></div>';
-
-        // Mapping quality
-        const mapped = stories.filter(isMapped).length;
-        const pct = total ? Math.round((mapped / total) * 100) : 0;
-        $("#analyticsMapping").innerHTML = `
-            <div class="kv">
-                <span class="k">Mapped</span>
-                <span class="v">${pct}%</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width:${pct}%"></div>
-            </div>
-            <div class="kv">
-                <span class="k">Mapped stories</span>
-                <span class="v">${mapped} / ${total}</span>
-            </div>
-            <div class="kv">
-                <span class="k">With government source</span>
-                <span class="v">${stories.filter((s) => s.government_source).length}</span>
-            </div>
-        `;
-
-        // At a glance
-        const uniqueMinistries = new Set(stories.flatMap(omaList)).size;
-        $("#analyticsGlance").innerHTML = kvList([
-            ["Unique ministries", uniqueMinistries],
-            ["Negative & mapped", stories.filter(
-                (s) => normalizeSentiment(s.sentiment) === "negative" && isMapped(s)
-            ).length],
-            ["Top institution", ministry[0] ? ministry[0][0] : "—"],
-        ]);
     }
 
     // ---------------------------------------------------------
-    // Brief
+    // BRIEF
     // ---------------------------------------------------------
     function renderBrief() {
         const mapped = stories.filter(isMapped);
@@ -1306,77 +1032,357 @@
 
         if (!mapped.length) {
             $("#briefBody").innerHTML =
-                '<tr><td colspan="4" class="empty">No mapped stories yet. Run the pipeline to build the brief.</td></tr>';
+                '<tr><td colspan="5" class="empty">No mapped stories yet.</td></tr>';
             return;
         }
 
-        $("#briefBody").innerHTML = mapped
-            .map((s) => {
-                const sent = normalizeSentiment(s.sentiment);
-                const approved = approvals[s.headline];
-                const draft = responseFor(s.headline);
-                const r = (draft && draft.response) || {};
+        $("#briefBody").innerHTML = mapped.map((s) => {
+            const sent = normalizeSentiment(s.sentiment);
+            const approved = approvals[s.headline];
+            const draft = responseFor(s.headline);
+            const r = (draft && draft.response) || {};
 
-                let comment = "None";
-                let tag = "";
-                if (approved) {
-                    comment = approved.final_text || approved.text || "Approved";
-                    tag = `<b style="color:var(--positive)">Approved · </b>`;
-                } else if (r.draft) {
-                    comment = r.draft;
-                    tag = `<b style="color:var(--mute)">Draft · </b>`;
-                } else if (s.ai_summary) {
-                    comment = s.ai_summary;
-                }
+            let comment = "None";
+            let tag = "";
+            if (approved) {
+                comment = approved.final_text || approved.text || "Approved";
+                tag = `<b style="color:var(--positive)">Approved · </b>`;
+            } else if (r.draft) {
+                comment = r.draft;
+                tag = `<b style="color:var(--mute)">Draft · </b>`;
+            } else if (s.ai_summary) {
+                comment = s.ai_summary;
+            }
 
-                const short = comment.length > 180
-                    ? escapeHtml(comment.slice(0, 180)) + "…"
-                    : escapeHtml(comment);
+            const short = comment.length > 180
+                ? escapeHtml(comment.slice(0, 180)) + "…"
+                : escapeHtml(comment);
 
-                                return `
-                    <tr>
-                        <td class="headline-cell">${escapeHtml(s.headline)}</td>
-                        <td data-label="Sentiment"><span class="pill ${sent}">${capitalize(sent)}</span></td>
-                        <td data-label="Institution" class="oma-cell">${escapeHtml(omaList(s).join(", "))}</td>
-                        <td data-label="Comment" style="font-size:12.5px;color:var(--ink-2);line-height:1.5;">
-                            ${tag}${short}
-                        </td>
-                        <td data-label="Action" style="width:70px;">
-                            <button class="btn btn-secondary btn-sm" data-edit="${escapeHtml(s.headline)}">Edit</button>
-                        </td>
-                    </tr>
-                `;
-            })
-            .join("");
-                    $$("#briefBody button[data-edit]").forEach((btn) => {
+            return `
+                <tr>
+                    <td class="headline-cell">${escapeHtml(s.headline)}</td>
+                    <td data-label="Sentiment"><span class="pill ${sent}">${capitalize(sent)}</span></td>
+                    <td data-label="Institution" class="oma-cell">${escapeHtml(omaList(s).join(", "))}</td>
+                    <td data-label="Comment" style="font-size:12.5px;color:var(--ink-2);line-height:1.5;">
+                        ${tag}${short}
+                    </td>
+                    <td data-label="Action" style="width:70px;">
+                        <button class="btn btn-secondary btn-sm" data-edit="${escapeHtml(s.headline)}">Edit</button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+
+        $$("#briefBody button[data-edit]").forEach((btn) => {
             btn.onclick = () => openEditModal(btn.dataset.edit);
         });
     }
 
     // ---------------------------------------------------------
-    // Start
+    // EDIT STORY
     // ---------------------------------------------------------
-    loadAll().then(() => {
-        const hash = (location.hash || "").slice(1);
-        if (hash && ["analytics", "brief", "coverage"].includes(hash)) {
-            switchTab(hash);
+    function openEditModal(headline) {
+        const story = stories.find((s) => s.headline === headline);
+        if (!story) return;
+        editingHeadline = headline;
+
+        $("#editHeadline").textContent = "Editing: " + headline.substring(0, 50);
+        $("#editHeadlineInput").value = story.headline || "";
+        $("#editSummaryInput").value = story.ai_summary || "";
+        $("#editSentimentInput").value = capitalize(normalizeSentiment(story.sentiment));
+        $("#editOmaInput").value = omaList(story).join(", ");
+
+        $("#editModalOverlay").classList.add("open");
+    }
+
+    $("#editCancel").onclick = () => {
+        $("#editModalOverlay").classList.remove("open");
+        editingHeadline = null;
+    };
+
+    $("#editModalOverlay").onclick = (e) => {
+        if (e.target.id === "editModalOverlay") {
+            $("#editModalOverlay").classList.remove("open");
+            editingHeadline = null;
         }
+    };
+
+    $("#editSave").onclick = async function () {
+        if (!editingHeadline) return;
+        const btn = this;
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Saving…";
+
+        const newHeadline = $("#editHeadlineInput").value.trim();
+        const summary = $("#editSummaryInput").value.trim();
+        const sentiment = $("#editSentimentInput").value;
+        const omaRaw = $("#editOmaInput").value.trim();
+        const oma = omaRaw ? omaRaw.split(",").map((x) => x.trim()).filter(Boolean) : [];
+
+        try {
+            const r = await apiFetch("/stories/edit", {
+                method: "PUT",
+                body: JSON.stringify({
+                    headline: editingHeadline,
+                    new_headline: newHeadline || editingHeadline,
+                    ai_summary: summary,
+                    sentiment,
+                    oma,
+                }),
+            });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                throw new Error(err.detail || "Save failed");
+            }
+            $("#editModalOverlay").classList.remove("open");
+            showToast("✅ Story updated.");
+            await loadAll();
+        } catch (e) {
+            showToast("Error: " + e.message);
+        }
+        btn.disabled = false;
+        btn.textContent = original;
+    };
+
+    // ---------------------------------------------------------
+    // RESPONSE MODAL
+    // ---------------------------------------------------------
+    function openResponseModal(story) {
+        current = story;
+        const r = responseFor(story.headline);
+        const oma = omaList(story);
+        const approved = approvals[story.headline];
+
+        $("#modalHeadline").textContent = story.headline;
+        $("#modalMeta").textContent = (story.source || "Unknown") + (oma.length ? " · " + oma.join(", ") : "");
+
+        if (story.ai_summary) {
+            $("#modalSummarySection").style.display = "block";
+            $("#modalSummary").textContent = story.ai_summary;
+        } else {
+            $("#modalSummarySection").style.display = "none";
+        }
+
+        const rr = (r && r.response) || {};
+        const hasDraft = rr.status === "ok" && rr.draft;
+
+        $("#modalDraft").value = (approved && (approved.final_text || approved.text)) || rr.draft || "";
+
+        if (hasDraft) {
+            $("#modalDraft").placeholder = "";
+            $("#modalStatus").textContent = approved ? "Approved" : "Draft · " + capitalize(rr.status);
+        } else {
+            $("#modalDraft").placeholder = "No draft yet — click 'Generate Draft' to try.";
+            $("#modalStatus").innerHTML = '<span style="color:var(--negative);">Draft not available</span>';
+        }
+
+        const genBtn = $("#modalGenerate");
+        const appBtn = $("#modalApprove");
+        if (hasDraft || approved) {
+            genBtn.style.display = "none";
+            appBtn.disabled = false;
+        } else {
+            genBtn.style.display = "inline-flex";
+            appBtn.disabled = true;
+        }
+
+        $("#modalOverlay").classList.add("open");
+    }
+
+    function closeModal() {
+        $("#modalOverlay").classList.remove("open");
+    }
+
+    $("#modalCancel").onclick = closeModal;
+    $("#modalOverlay").onclick = (e) => {
+        if (e.target.id === "modalOverlay") closeModal();
+    };
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeModal();
     });
-        // ---------------------------------------------------------
-    // Audit Trail
+
+    $("#modalGenerate").onclick = async function () {
+        if (!current) return;
+        const btn = this;
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Generating…";
+
+        try {
+            const r = await apiFetch("/responses/generate", {
+                method: "POST",
+                body: JSON.stringify({ headline: current.headline }),
+            });
+            if (!r.ok) throw new Error("Generation failed");
+            const result = await r.json();
+            if (result.status !== "ok") throw new Error(result.reason || "No draft");
+
+            $("#modalDraft").value = result.draft;
+            $("#modalStatus").textContent = "Draft · Ready";
+            $("#modalGenerate").style.display = "none";
+            $("#modalApprove").disabled = false;
+            showToast("✅ Draft generated.");
+        } catch (e) {
+            showToast("Error: " + e.message);
+        }
+        btn.disabled = false;
+        btn.textContent = original;
+    };
+
+    $("#modalApprove").onclick = async function () {
+        if (!current) return;
+        const text = $("#modalDraft").value.trim();
+        if (!text) {
+            showToast("Enter response text before approving.");
+            return;
+        }
+
+        const btn = this;
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Approving…";
+
+        const r = responseFor(current.headline);
+        const ministry = (r && r.response && r.response.ministry) || omaList(current)[0] || "Government";
+
+        try {
+            const res = await apiFetch("/responses/approve", {
+                method: "POST",
+                body: JSON.stringify({
+                    headline: current.headline,
+                    ministry,
+                    final_text: text,
+                }),
+            });
+            if (!res.ok) throw new Error("Approval failed");
+
+            approvals[current.headline] = {
+                approved_at: new Date().toISOString(),
+                ministry,
+                final_text: text,
+            };
+            closeModal();
+            showToast("✅ Response approved.");
+            await loadAll();
+        } catch (e) {
+            showToast("Error: " + e.message);
+        }
+        btn.disabled = false;
+        btn.textContent = original;
+    };
+
+    // ---------------------------------------------------------
+    // PIPELINE
+    // ---------------------------------------------------------
+    async function runPipeline(btn, label) {
+        const original = btn.textContent;
+        btn.disabled = true;
+
+        const widget = document.createElement("div");
+        widget.className = "pipeline-widget show";
+        widget.innerHTML = `
+            <div class="pipeline-widget__header">
+                <div class="pipeline-widget__title"><span class="spin">⟳</span> Running Pipeline</div>
+                <button class="pipeline-widget__close" id="plgClose">×</button>
+            </div>
+            <div class="pipeline-widget__bar"><div class="pipeline-widget__fill" id="plgFill" style="width:0%;"></div></div>
+            <div class="pipeline-widget__stage" id="plgStage"><strong>Starting…</strong></div>
+        `;
+        document.body.appendChild(widget);
+
+        document.getElementById("plgClose").onclick = () => {
+            widget.classList.remove("show");
+            setTimeout(() => widget.remove(), 200);
+        };
+
+        let stages = [];
+        try {
+            const sr = await apiFetch("/pipeline/stages");
+            const sd = await sr.json();
+            stages = sd.stages || [];
+        } catch (e) {
+            showToast("Could not load stages.");
+            widget.remove();
+            btn.disabled = false;
+            btn.textContent = original;
+            return;
+        }
+
+        let failed = false;
+        for (let i = 0; i < stages.length; i++) {
+            const s = stages[i];
+            document.getElementById("plgStage").innerHTML = `<strong>${s.label}…</strong>`;
+            document.getElementById("plgFill").style.width = `${(i / stages.length) * 100}%`;
+            try {
+                const r = await apiFetch("/pipeline/run-step", {
+                    method: "POST",
+                    body: JSON.stringify({ stage_id: s.id }),
+                });
+                if (!r.ok) {
+                    document.getElementById("plgStage").innerHTML =
+                        `<span style="color:var(--negative);">Failed: ${s.label}</span>`;
+                    widget.classList.add("error");
+                    failed = true;
+                    break;
+                }
+                document.getElementById("plgFill").style.width = `${((i + 1) / stages.length) * 100}%`;
+            } catch (e) {
+                failed = true;
+                break;
+            }
+        }
+
+        if (!failed) {
+            widget.classList.add("done");
+            document.getElementById("plgStage").innerHTML = `<span style="color:var(--positive);">✅ Complete</span>`;
+            document.getElementById("plgFill").style.width = "100%";
+            showToast("Pipeline complete.");
+            await loadAll();
+        } else {
+            showToast("Pipeline failed.");
+        }
+
+        btn.disabled = false;
+        btn.textContent = original;
+        setTimeout(() => {
+            if (widget.parentNode) {
+                widget.classList.remove("show");
+                setTimeout(() => widget.remove(), 200);
+            }
+        }, failed ? 8000 : 2500);
+    }
+
+    $("#btnRun").onclick = () => runPipeline($("#btnRun"), "Running…");
+    $("#btnRegenerate").onclick = () => runPipeline($("#btnRegenerate"), "Regenerating…");
+
+    // ---------------------------------------------------------
+    // DOWNLOADS
+    // ---------------------------------------------------------
+    function download(kind) {
+        const t = getToken();
+        const url = `${API_BASE}/brief/${kind}?token=${encodeURIComponent(t)}&t=${Date.now()}`;
+        window.open(url, "_blank");
+    }
+
+    $("#btnDownloadPdf").onclick = () => download("pdf");
+    $("#btnDownloadXlsx").onclick = () => download("xlsx");
+
+    // ---------------------------------------------------------
+    // AUDIT
     // ---------------------------------------------------------
     let auditEntries = [];
     let auditFilter = "all";
 
     const ACTION_LABELS = {
-        logged_in:                { label: "Signed in",        color: "#64748B" },
-        approved:                 { label: "Approved",         color: "#047857" },
-        edited:                   { label: "Edited",           color: "#2563EB" },
-        generated:                { label: "Generated draft",  color: "#7C3AED" },
-        pipeline_stage:           { label: "Pipeline stage",   color: "#0F2540" },
-        user_created:             { label: "User created",     color: "#0891B2" },
-        user_updated:             { label: "User updated",     color: "#0891B2" },
-        user_deleted:             { label: "User deleted",     color: "#B91C1C" },
+        logged_in:                { label: "Signed in",       color: "#64748B" },
+        approved:                 { label: "Approved",        color: "#047857" },
+        edited:                   { label: "Edited",          color: "#2563EB" },
+        generated:                { label: "Generated",       color: "#7C3AED" },
+        pipeline_stage:           { label: "Pipeline stage",  color: "#0F2540" },
+        user_created:             { label: "User created",    color: "#0891B2" },
+        user_updated:             { label: "User updated",    color: "#0891B2" },
+        user_deleted:             { label: "User deleted",    color: "#B91C1C" },
         ministry_response_logged: { label: "Ministry response", color: "#047857" },
         ministry_notified_mict:   { label: "Ministry notified MICT", color: "#EA580C" },
     };
@@ -1388,7 +1394,6 @@
             const data = await r.json();
             auditEntries = data.entries || [];
         } catch (e) {
-            console.error("Failed to load audit", e);
             auditEntries = [];
         }
     }
@@ -1398,17 +1403,14 @@
             const tbody = document.getElementById("auditBody");
             const search = (document.getElementById("auditSearch").value || "").toLowerCase();
 
-            // Stat cards
             document.getElementById("auditTotal").textContent = auditEntries.length;
             document.getElementById("auditApprovals").textContent = auditEntries.filter((e) => e.action === "approved").length;
             document.getElementById("auditEdits").textContent = auditEntries.filter((e) => e.action === "edited").length;
             document.getElementById("auditPipeline").textContent = auditEntries.filter((e) => e.action === "pipeline_stage").length;
 
-            // Chip counts
             const counts = { all: auditEntries.length };
-            for (const e of auditEntries) {
-                counts[e.action] = (counts[e.action] || 0) + 1;
-            }
+            for (const e of auditEntries) counts[e.action] = (counts[e.action] || 0) + 1;
+
             const chipDefs = [
                 ["all", "All"],
                 ["approved", "Approved"],
@@ -1417,13 +1419,11 @@
                 ["pipeline_stage", "Pipeline"],
                 ["logged_in", "Signed in"],
             ];
-            document.getElementById("auditChips").innerHTML = chipDefs
-                .map(([k, label]) => `
-                    <button class="chip ${auditFilter === k ? "active" : ""}" data-audit-filter="${k}">
-                        ${label}
-                        <span class="chip-count">${counts[k] || 0}</span>
-                    </button>
-                `).join("");
+            document.getElementById("auditChips").innerHTML = chipDefs.map(([k, label]) =>
+                `<button class="chip ${auditFilter === k ? "active" : ""}" data-audit-filter="${k}">
+                    ${label} <span class="chip-count">${counts[k] || 0}</span>
+                </button>`
+            ).join("");
 
             $$("#auditChips .chip").forEach((el) => {
                 el.onclick = () => {
@@ -1432,11 +1432,8 @@
                 };
             });
 
-            // Filter entries
             let filtered = auditEntries;
-            if (auditFilter !== "all") {
-                filtered = filtered.filter((e) => e.action === auditFilter);
-            }
+            if (auditFilter !== "all") filtered = filtered.filter((e) => e.action === auditFilter);
             if (search) {
                 filtered = filtered.filter((e) =>
                     (e.user + " " + e.target + " " + e.action).toLowerCase().includes(search)
@@ -1447,7 +1444,7 @@
                 `${filtered.length} of ${auditEntries.length} events`;
 
             if (!filtered.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty">No audit events match.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="empty">No events match.</td></tr>';
                 return;
             }
 
@@ -1464,27 +1461,21 @@
             tbody.innerHTML = filtered.map((e) => {
                 const meta = ACTION_LABELS[e.action] || { label: e.action, color: "#64748B" };
                 const details = e.details && Object.keys(e.details).length
-                    ? Object.entries(e.details)
-                        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
-                        .join(" · ")
+                    ? Object.entries(e.details).map(([k, v]) =>
+                        `${k}: ${Array.isArray(v) ? v.join(", ") : v}`
+                    ).join(" · ")
                     : "—";
 
                 return `
                     <tr>
-                        <td class="mono" style="font-size:12px; color:var(--mute);">
-                            ${fmt(e.timestamp)}
-                        </td>
-                        <td style="font-weight:500; color:var(--ink);">
-                            ${escapeHtml(e.user || "system")}
-                        </td>
+                        <td class="mono" style="font-size:12px; color:var(--mute);">${fmt(e.timestamp)}</td>
+                        <td style="font-weight:500; color:var(--ink);">${escapeHtml(e.user || "system")}</td>
                         <td>
                             <span class="pill" style="
                                 background:${meta.color}15;
                                 color:${meta.color};
                                 border:1px solid ${meta.color}30;
-                                font-size:11px;
-                                padding:3px 9px;
-                            ">
+                                font-size:11px; padding:3px 9px;">
                                 ${meta.label}
                             </span>
                         </td>
@@ -1502,6 +1493,17 @@
 
     document.getElementById("auditSearch").oninput = renderAudit;
     document.getElementById("btnRefreshAudit").onclick = renderAudit;
+
+    // ---------------------------------------------------------
+    // START
+    // ---------------------------------------------------------
+    loadAll().then(() => {
+        const hash = (location.hash || "").slice(1);
+        if (hash && ["analytics", "brief", "audit", "coverage"].includes(hash)) {
+            switchTab(hash);
+        }
+    });
+
 })();
 </script>
 
