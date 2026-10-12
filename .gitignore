@@ -20,3 +20,6 @@ Thumbs.db
 app/config.yaml
 .env
 app/config.yaml
+data/govpulse.db
+data/govpulse.db-wal
+data/govpulse.db-shm
