@@ -74,51 +74,131 @@ from datetime import datetime, timedelta
 from collections import Counter
 
 
-@router.get("/analytics/trend")
-def analytics_trend(user: dict = Depends(get_current_user)):
-    """7-day sentiment trend."""
+def _filter_by_days(stories: list, days: int) -> list:
+    """Filter stories by how recently they were scraped/created."""
+    if days >= 9999:
+        return stories
+
+    cutoff = datetime.now() - timedelta(days=days)
+    cutoff_str = cutoff.isoformat()
+
+    result = []
+    for s in stories:
+        ts = s.get("scraped_at") or s.get("created_at") or ""
+        if ts and ts >= cutoff_str:
+            result.append(s)
+    return result
+
+
+def _seed_for_day(day):
+    """Deterministic seed based on day-of-month for demo data."""
+    return (day.day * 7) % 15
+
+
+@router.get("/analytics/summary")
+def analytics_summary(days: int = 7, user: dict = Depends(get_current_user)):
+    """Summary metrics for the analytics header."""
     stories = db.get_stories()
     if user.get("role") == "ministry":
         ministry = user.get("ministry")
         stories = [s for s in stories if ministry in (s.get("oma") or [])]
 
-    # Today's real data
-    today_counts = {"Positive": 0, "Neutral": 0, "Negative": 0}
-    for s in stories:
-        sentiment = s.get("sentiment") or "Neutral"
-        today_counts[sentiment] = today_counts.get(sentiment, 0) + 1
+    stories = _filter_by_days(stories, days)
 
+    pos = sum(1 for s in stories if s.get("sentiment") == "Positive")
+    neu = sum(1 for s in stories if s.get("sentiment") == "Neutral")
+    neg = sum(1 for s in stories if s.get("sentiment") == "Negative")
+
+    # Response rate
+    neg_stories = [s for s in stories if s.get("sentiment") == "Negative"]
+    approvals = db.get_approvals_as_dict()
+    responded = len([s for s in neg_stories if s["headline"] in approvals])
+    total_neg = len(neg_stories)
+    rate = round((responded / total_neg * 100) if total_neg else 0, 1)
+
+    # Ministries covered
+    ministries = set()
+    for s in stories:
+        for m in (s.get("oma") or []):
+            if m and m != "Unmapped":
+                ministries.add(m)
+
+    return {
+        "days": days,
+        "total": len(stories),
+        "positive": pos,
+        "neutral": neu,
+        "negative": neg,
+        "response_rate": rate,
+        "responded": responded,
+        "total_negative": total_neg,
+        "ministries": len(ministries),
+    }
+
+
+@router.get("/analytics/trend")
+def analytics_trend(days: int = 7, user: dict = Depends(get_current_user)):
+    """Sentiment trend over the selected period."""
+    stories = db.get_stories()
+    if user.get("role") == "ministry":
+        ministry = user.get("ministry")
+        stories = [s for s in stories if ministry in (s.get("oma") or [])]
+
+    # Real data grouped by date
+    by_day = {}
+    for s in stories:
+        ts = s.get("scraped_at") or s.get("created_at") or ""
+        if not ts:
+            continue
+        day = ts[:10]
+        if day not in by_day:
+            by_day[day] = {"Positive": 0, "Neutral": 0, "Negative": 0}
+        sentiment = s.get("sentiment") or "Neutral"
+        by_day[day][sentiment] = by_day[day].get(sentiment, 0) + 1
+
+    # Build the day-by-day series
     today = datetime.now().date()
+    span = min(days if days < 9999 else 30, 30)  # Cap at 30 days
     result = []
-    for i in range(6, -1, -1):
+    for i in range(span - 1, -1, -1):
         day = today - timedelta(days=i)
+        day_str = day.isoformat()
+
         if i == 0:
-            entry = today_counts
+            # Today — real data
+            entry = by_day.get(day_str, {"Positive": 0, "Neutral": 0, "Negative": 0})
+        elif day_str in by_day:
+            # Real data exists for that day
+            entry = by_day[day_str]
         else:
-            # Deterministic seed based on day-of-month for consistency
-            seed = (day.day * 7) % 15
+            # Seed demo data
+            seed = _seed_for_day(day)
             entry = {
                 "Positive": 8 + seed,
                 "Neutral": 3 + (seed // 3),
                 "Negative": 2 + (seed // 4),
             }
+
         result.append({
-            "date": day.isoformat(),
+            "date": day_str,
             "Positive": entry.get("Positive", 0),
             "Neutral": entry.get("Neutral", 0),
             "Negative": entry.get("Negative", 0),
         })
+
     return {"trend": result}
 
+
 @router.get("/analytics/officials")
-def analytics_officials(user: dict = Depends(get_current_user)):
-    """Top mentioned officials — filters out locations and fragments."""
+def analytics_officials(days: int = 7, user: dict = Depends(get_current_user)):
+    """Top mentioned officials within the selected period."""
     stories = db.get_stories()
     if user.get("role") == "ministry":
         ministry = user.get("ministry")
         stories = [s for s in stories if ministry in (s.get("oma") or [])]
 
-    # Words that spaCy sometimes misclassifies as PERSON
+    stories = _filter_by_days(stories, days)
+
     NON_PERSON_WORDS = {
         "windhoek", "omaheke", "kunene", "bush", "namibia",
         "swakopmund", "walvis", "katutura", "rundu", "oshakati",
@@ -133,21 +213,15 @@ def analytics_officials(user: dict = Depends(get_current_user)):
         for p in (people or []):
             if not p:
                 continue
-
             p_clean = p.strip()
             if len(p_clean) < 5 or len(p_clean) > 40:
                 continue
-
-            # Skip known non-people
             if p_clean.lower() in NON_PERSON_WORDS:
                 continue
-
-            # Require at least two words OR a hyphen (real names)
             has_space = " " in p_clean
             has_hyphen = "-" in p_clean
             if not (has_space or has_hyphen):
                 continue
-
             counts[p_clean] += 1
 
     return {
@@ -159,12 +233,14 @@ def analytics_officials(user: dict = Depends(get_current_user)):
 
 
 @router.get("/analytics/response-rate")
-def analytics_response_rate(user: dict = Depends(get_current_user)):
-    """How many negative stories have approved responses."""
+def analytics_response_rate(days: int = 7, user: dict = Depends(get_current_user)):
+    """Response rate over the selected period."""
     stories = db.get_stories(sentiment="Negative")
     if user.get("role") == "ministry":
         ministry = user.get("ministry")
         stories = [s for s in stories if ministry in (s.get("oma") or [])]
+
+    stories = _filter_by_days(stories, days)
 
     approvals = db.get_approvals_as_dict()
     total = len(stories)
@@ -176,38 +252,57 @@ def analytics_response_rate(user: dict = Depends(get_current_user)):
         "rate": round((responded / total * 100) if total else 0, 1),
     }
 
-@router.get("/analytics/officials")
-def analytics_officials(user: dict = Depends(get_current_user)):
-    """Top mentioned officials."""
+
+@router.get("/analytics/ministries")
+def analytics_ministries(days: int = 7, user: dict = Depends(get_current_user)):
+    """Stacked sentiment per ministry within the selected period."""
     stories = db.get_stories()
     if user.get("role") == "ministry":
         ministry = user.get("ministry")
         stories = [s for s in stories if ministry in (s.get("oma") or [])]
 
-    # Words that aren't people
-    stopwords = {
-        "windhoek", "omaheke", "kunene", "bush", "namibia",
-        "swakopmund", "walvis", "katutura", "rundu", "oshakati",
-    }
+    stories = _filter_by_days(stories, days)
 
-    counts = Counter()
+    ministry_map = {}
     for s in stories:
-        entities = s.get("entities") or {}
-        people = entities.get("people") if isinstance(entities, dict) else []
-        for p in (people or []):
-            if not p or len(p) < 4 or len(p) > 40:
+        sent = s.get("sentiment") or "Neutral"
+        for m in (s.get("oma") or []):
+            if m == "Unmapped":
                 continue
-            if p.lower() in stopwords:
-                continue
-            if " " not in p and "-" not in p:
-                # Single-word "people" are often fragments — skip
-                continue
-            counts[p] += 1
+            if m not in ministry_map:
+                ministry_map[m] = {"Positive": 0, "Neutral": 0, "Negative": 0}
+            ministry_map[m][sent] = ministry_map[m].get(sent, 0) + 1
 
+    result = []
+    for name, counts in ministry_map.items():
+        total = counts["Positive"] + counts["Neutral"] + counts["Negative"]
+        result.append({
+            "name": name,
+            "Positive": counts["Positive"],
+            "Neutral": counts["Neutral"],
+            "Negative": counts["Negative"],
+            "total": total,
+        })
+
+    result.sort(key=lambda x: -x["total"])
+    return {"ministries": result[:8]}
+
+
+@router.get("/analytics/sources")
+def analytics_sources(days: int = 7, user: dict = Depends(get_current_user)):
+    """Story count per source within the selected period."""
+    stories = db.get_stories()
+    if user.get("role") == "ministry":
+        ministry = user.get("ministry")
+        stories = [s for s in stories if ministry in (s.get("oma") or [])]
+
+    stories = _filter_by_days(stories, days)
+
+    counts = Counter(s.get("source") or "Unknown" for s in stories)
     return {
-        "officials": [
+        "sources": [
             {"name": n, "count": c}
-            for n, c in counts.most_common(10)
+            for n, c in counts.most_common()
         ]
     }
 

@@ -181,6 +181,22 @@
             </div>
         </div>
 
+                <!-- Time filter -->
+        <div class="panel" style="margin-bottom:20px;">
+            <div style="padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                <div style="display:flex; gap:8px; flex-wrap:wrap;" id="analyticsFilters">
+                    <button class="chip" data-days="1">Today</button>
+                    <button class="chip active" data-days="7">Week</button>
+                    <button class="chip" data-days="14">2 Weeks</button>
+                    <button class="chip" data-days="30">Month</button>
+                    <button class="chip" data-days="9999">All Time</button>
+                </div>
+                <div class="note" id="analyticsPeriodLabel" style="font-size:12px;color:var(--mute);">
+                    Showing: Last 7 days
+                </div>
+            </div>
+        </div>
+
         <!-- ROW 1 — THREE KEY METRICS -->
         <div class="stats-grid" style="grid-template-columns:repeat(3,1fr); margin-bottom:20px;">
             <div class="stat-card total">
@@ -556,6 +572,7 @@
     let approvals = {};
     let brief = { pdf: false, xlsx: false };
     let filter = "all";
+        let currentAnalyticsDays = 7;
     let current = null;
     let charts = {};
     let editingHeadline = null;
@@ -726,7 +743,7 @@
     // ---------------------------------------------------------
     // ANALYTICS — UPGRADED
     // ---------------------------------------------------------
-    async function renderAnalytics() {
+        async function renderAnalytics() {
         if (!window.Chart) return;
 
         // Destroy old charts
@@ -740,41 +757,37 @@
         Chart.defaults.font.size = 11;
         Chart.defaults.color = "#475569";
 
-        // ---------- Row 1: Key metrics ----------
-        const total = stories.length;
-        $("#anaTotal").textContent = total;
+        const days = currentAnalyticsDays;
 
-        let responseRate = null;
+        // ---------- Row 1: Key metrics ----------
         try {
-            responseRate = await getJSON("/stories/analytics/response-rate");
-            $("#anaResponseRate").textContent = responseRate.rate + "%";
+            const summary = await getJSON(`/stories/analytics/summary?days=${days}`);
+            $("#anaTotal").textContent = summary.total;
+            $("#anaResponseRate").textContent = summary.response_rate + "%";
             $("#anaResponseSub").textContent =
-                responseRate.responded + " of " + responseRate.total_negative + " negative stories";
+                summary.responded + " of " + summary.total_negative + " negative stories";
+            $("#anaMinistries").textContent = summary.ministries;
         } catch (e) {
-            $("#anaResponseRate").textContent = "—";
+            console.error("Summary failed:", e);
         }
 
-        // Ministries count
-        const ministries = new Set();
-        stories.forEach((s) => omaList(s).forEach((m) => {
-            if (m !== "Unmapped") ministries.add(m);
-        }));
-        $("#anaMinistries").textContent = ministries.size;
-
-        // ---------- Row 2a: 7-Day Trend ----------
+        // ---------- Row 2a: Sentiment Trend ----------
         try {
-            const trendData = await getJSON("/stories/analytics/trend");
+            const trendData = await getJSON(`/stories/analytics/trend?days=${days}`);
             const trend = trendData.trend || [];
 
-            const labels = trend.map((d) => {
-                const day = new Date(d.date);
-                return day.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-            });
+            // Adapt label format based on span
+            const labelFor = (d) => {
+                const day = new Date(d);
+                if (days === 1) return day.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                if (days <= 7) return day.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+                return day.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+            };
 
             charts.trend = new Chart($("#chartTrend"), {
                 type: "line",
                 data: {
-                    labels: labels,
+                    labels: trend.map((d) => labelFor(d.date)),
                     datasets: [
                         {
                             label: "Positive",
@@ -783,7 +796,7 @@
                             backgroundColor: "rgba(4, 120, 87, 0.06)",
                             tension: 0.35,
                             borderWidth: 2,
-                            pointRadius: 4,
+                            pointRadius: days > 14 ? 2 : 4,
                             pointBackgroundColor: colorVar("--positive"),
                         },
                         {
@@ -793,7 +806,7 @@
                             backgroundColor: "rgba(148, 163, 184, 0.06)",
                             tension: 0.35,
                             borderWidth: 2,
-                            pointRadius: 4,
+                            pointRadius: days > 14 ? 2 : 4,
                             pointBackgroundColor: "#94A3B8",
                         },
                         {
@@ -803,7 +816,7 @@
                             backgroundColor: "rgba(185, 28, 28, 0.06)",
                             tension: 0.35,
                             borderWidth: 2,
-                            pointRadius: 4,
+                            pointRadius: days > 14 ? 2 : 4,
                             pointBackgroundColor: colorVar("--negative"),
                         },
                     ],
@@ -816,7 +829,10 @@
                     },
                     scales: {
                         y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "#EEF2F6" } },
-                        x: { grid: { display: false } },
+                        x: {
+                            grid: { display: false },
+                            ticks: days > 14 ? { maxRotation: 45, autoSkip: true, maxTicksLimit: 12 } : {},
+                        },
                     },
                 },
             });
@@ -825,9 +841,13 @@
         }
 
         // ---------- Row 2b: Sentiment Donut ----------
-        const pos = count("positive");
-        const neu = count("neutral");
-        const neg = count("negative");
+        let pos = 0, neu = 0, neg = 0;
+        try {
+            const summary2 = await getJSON(`/stories/analytics/summary?days=${days}`);
+            pos = summary2.positive;
+            neu = summary2.neutral;
+            neg = summary2.negative;
+        } catch (e) {}
 
         charts.sentiment = new Chart($("#chartSentiment"), {
             type: "doughnut",
@@ -849,7 +869,7 @@
                     tooltip: {
                         callbacks: {
                             label: (ctx) => {
-                                const t = stories.length || 1;
+                                const t = pos + neu + neg || 1;
                                 return ` ${ctx.label}: ${ctx.raw} (${((ctx.raw / t) * 100).toFixed(1)}%)`;
                             },
                         },
@@ -859,87 +879,65 @@
         });
 
         // ---------- Row 3a: Stacked Bar — Sentiment by Ministry ----------
-        const ministryMap = {};
-        stories.forEach((s) => {
-            const sent = s.sentiment || "Neutral";
-            omaList(s).forEach((m) => {
-                if (m === "Unmapped") return;
-                if (!ministryMap[m]) ministryMap[m] = { Positive: 0, Neutral: 0, Negative: 0 };
-                ministryMap[m][sent] = (ministryMap[m][sent] || 0) + 1;
+        try {
+            const ministriesData = await getJSON(`/stories/analytics/ministries?days=${days}`);
+            const entries = ministriesData.ministries || [];
+
+            const shortName = (n) => n
+                .replace("Ministry of ", "")
+                .replace("Office of the ", "");
+
+            charts.ministryStack = new Chart($("#chartMinistryStack"), {
+                type: "bar",
+                data: {
+                    labels: entries.map((m) => shortName(m.name)),
+                    datasets: [
+                        {
+                            label: "Positive",
+                            data: entries.map((m) => m.Positive),
+                            backgroundColor: colorVar("--positive"),
+                            borderRadius: 3,
+                        },
+                        {
+                            label: "Neutral",
+                            data: entries.map((m) => m.Neutral),
+                            backgroundColor: "#94A3B8",
+                            borderRadius: 3,
+                        },
+                        {
+                            label: "Negative",
+                            data: entries.map((m) => m.Negative),
+                            backgroundColor: colorVar("--negative"),
+                            borderRadius: 3,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: "y",
+                    plugins: {
+                        legend: { position: "bottom", labels: { boxWidth: 10, boxHeight: 10, padding: 12 } },
+                    },
+                    scales: {
+                        x: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, grid: { color: "#EEF2F6" } },
+                        y: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
+                    },
+                },
             });
-        });
-
-        const ministryEntries = Object.entries(ministryMap)
-            .map(([name, counts]) => ({
-                name,
-                counts,
-                total: counts.Positive + counts.Neutral + counts.Negative,
-            }))
-            .sort((a, b) => b.total - a.total)
-            .slice(0, 8);
-
-        const shortName = (n) => n
-            .replace("Ministry of ", "")
-            .replace("Office of the ", "")
-            .substring(0, 32);
-
-        charts.ministryStack = new Chart($("#chartMinistryStack"), {
-            type: "bar",
-            data: {
-                labels: ministryEntries.map((m) => shortName(m.name)),
-                datasets: [
-                    {
-                        label: "Positive",
-                        data: ministryEntries.map((m) => m.counts.Positive),
-                        backgroundColor: colorVar("--positive"),
-                        borderRadius: 3,
-                    },
-                    {
-                        label: "Neutral",
-                        data: ministryEntries.map((m) => m.counts.Neutral),
-                        backgroundColor: "#94A3B8",
-                        borderRadius: 3,
-                    },
-                    {
-                        label: "Negative",
-                        data: ministryEntries.map((m) => m.counts.Negative),
-                        backgroundColor: colorVar("--negative"),
-                        borderRadius: 3,
-                    },
-                ],
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: "y",
-                plugins: {
-                    legend: { position: "bottom", labels: { boxWidth: 10, boxHeight: 10, padding: 12 } },
-                },
-                scales: {
-                    x: {
-                        stacked: true,
-                        beginAtZero: true,
-                        ticks: { precision: 0 },
-                        grid: { color: "#EEF2F6" },
-                    },
-                    y: {
-                        stacked: true,
-                        grid: { display: false },
-                        ticks: { font: { size: 10 } },
-                    },
-                },
-            },
-        });
+        } catch (e) {
+            console.error("Ministry chart failed:", e);
+        }
 
         // ---------- Row 3b: Top Officials ----------
         try {
-            const officialsData = await getJSON("/stories/analytics/officials");
+            const officialsData = await getJSON(`/stories/analytics/officials?days=${days}`);
             const officials = (officialsData.officials || []).slice(0, 10);
 
             charts.officials = new Chart($("#chartOfficials"), {
                 type: "bar",
                 data: {
-                    labels: officials.map((o) => o.name.length > 26 ? o.name.substring(0, 26) + "…" : o.name),
+                    labels: officials.map((o) => o.name),
                     datasets: [{
                         data: officials.map((o) => o.count),
                         backgroundColor: colorVar("--mict-navy"),
@@ -953,15 +951,8 @@
                     indexAxis: "y",
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: {
-                            beginAtZero: true,
-                            ticks: { precision: 0 },
-                            grid: { color: "#EEF2F6" },
-                        },
-                        y: {
-                            grid: { display: false },
-                            ticks: { font: { size: 10 } },
-                        },
+                        x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "#EEF2F6" } },
+                        y: { grid: { display: false }, ticks: { font: { size: 10 } } },
                     },
                 },
             });
@@ -970,47 +961,40 @@
         }
 
         // ---------- Row 4: Sources ----------
-        const sourceCounts = {};
-        stories.forEach((s) => {
-            const src = s.source || "Unknown";
-            sourceCounts[src] = (sourceCounts[src] || 0) + 1;
-        });
-        const sourceEntries = Object.entries(sourceCounts).sort((a, b) => b[1] - a[1]);
+        try {
+            const sourcesData = await getJSON(`/stories/analytics/sources?days=${days}`);
+            const sources = sourcesData.sources || [];
 
-        charts.sources = new Chart($("#chartSources"), {
-            type: "bar",
-            data: {
-                labels: sourceEntries.map((e) => e[0]),
-                datasets: [{
-                    data: sourceEntries.map((e) => e[1]),
-                    backgroundColor: [
-                        colorVar("--mict-navy"),
-                        colorVar("--mict-blue"),
-                        colorVar("--mict-sky"),
-                        "#94A3B8",
-                        "#CBD5E1",
-                    ],
-                    borderRadius: 4,
-                    barThickness: 32,
-                }],
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { precision: 0 },
-                        grid: { color: "#EEF2F6" },
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { size: 11 } },
+            charts.sources = new Chart($("#chartSources"), {
+                type: "bar",
+                data: {
+                    labels: sources.map((s) => s.name),
+                    datasets: [{
+                        data: sources.map((s) => s.count),
+                        backgroundColor: [
+                            colorVar("--mict-navy"),
+                            colorVar("--mict-blue"),
+                            colorVar("--mict-sky"),
+                            "#94A3B8",
+                            "#CBD5E1",
+                        ],
+                        borderRadius: 4,
+                        barThickness: 32,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "#EEF2F6" } },
+                        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
                     },
                 },
-            },
-        });
+            });
+        } catch (e) {
+            console.error("Sources chart failed:", e);
+        }
     }
 
     // ---------------------------------------------------------
@@ -1497,6 +1481,31 @@
     // ---------------------------------------------------------
     // START
     // ---------------------------------------------------------
+        // ---------------------------------------------------------
+    // ANALYTICS TIME FILTER
+    // ---------------------------------------------------------
+    document.querySelectorAll("#analyticsFilters .chip").forEach((chip) => {
+        chip.onclick = () => {
+            document.querySelectorAll("#analyticsFilters .chip").forEach((c) =>
+                c.classList.remove("active")
+            );
+            chip.classList.add("active");
+            currentAnalyticsDays = parseInt(chip.dataset.days, 10);
+
+            // Update the label
+            const labelMap = {
+                1: "Today",
+                7: "Last 7 days",
+                14: "Last 14 days",
+                30: "Last 30 days",
+                9999: "All time",
+            };
+            document.getElementById("analyticsPeriodLabel").textContent =
+                "Showing: " + (labelMap[currentAnalyticsDays] || "Custom");
+
+            renderAnalytics();
+        };
+    });
     loadAll().then(() => {
         const hash = (location.hash || "").slice(1);
         if (hash && ["analytics", "brief", "audit", "coverage"].includes(hash)) {
