@@ -4,10 +4,12 @@ GovPulse API — FastAPI application entry point
 
 import os
 import sys
+
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 
+# Make sure src/ is importable
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
@@ -21,7 +23,15 @@ from api.auth import (
     mark_login,
 )
 from api.models import LoginRequest, LoginResponse
-from api.routes import stories, brief, responses, pipeline, response_generate, ministry
+from api.routes import (
+    stories,
+    brief,
+    responses,
+    pipeline,
+    response_generate,
+    ministry,
+    admin,
+)
 from src import db
 
 
@@ -32,7 +42,9 @@ app = FastAPI(
 )
 
 
+# ------------------------------------------------------------
 # CORS
+# ------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -103,51 +115,15 @@ def me(user: dict = Depends(get_current_user)):
 
 
 # ------------------------------------------------------------
-# AUDIT
+# AUDIT (global)
 # ------------------------------------------------------------
 @app.get("/audit")
 def list_audit(limit: int = 200, user: dict = Depends(get_current_user)):
-    """Return recent audit entries."""
+    """Return recent audit entries. Admin/Analyst/Oversight only."""
     if user.get("role") not in ("admin", "analyst", "oversight"):
         raise HTTPException(status_code=403, detail="Not allowed")
     entries = db.get_audit_entries(limit=limit)
     return {"count": len(entries), "entries": entries}
-
-
-# ------------------------------------------------------------
-# MINISTRY VIEW
-# ------------------------------------------------------------
-@app.get("/ministry/summary")
-def ministry_summary(user: dict = Depends(get_current_user)):
-    """Summary metrics for the current user's ministry."""
-    if user.get("role") != "ministry":
-        raise HTTPException(status_code=403, detail="Ministry users only")
-
-    ministry = user.get("ministry")
-    if not ministry:
-        raise HTTPException(status_code=400, detail="No ministry assigned")
-
-    stories = db.get_stories(ministry=ministry)
-    approvals = [
-        a for a in db.get_all_approvals()
-        if a.get("ministry") == ministry
-    ]
-    responses = [
-        r for r in db.get_all_responses()
-        if r.get("ministry") == ministry
-    ]
-
-    counts = {"Positive": 0, "Neutral": 0, "Negative": 0}
-    for s in stories:
-        counts[s.get("sentiment")] = counts.get(s.get("sentiment"), 0) + 1
-
-    return {
-        "ministry": ministry,
-        "total_stories": len(stories),
-        "sentiment": counts,
-        "approvals": len(approvals),
-        "responses": len(responses),
-    }
 
 
 # ------------------------------------------------------------
@@ -159,3 +135,4 @@ app.include_router(responses.router)
 app.include_router(pipeline.router)
 app.include_router(response_generate.router)
 app.include_router(ministry.router)
+app.include_router(admin.router)
