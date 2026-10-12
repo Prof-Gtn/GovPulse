@@ -21,7 +21,7 @@ from api.auth import (
     mark_login,
 )
 from api.models import LoginRequest, LoginResponse
-from api.routes import stories, brief, responses, pipeline, response_generate
+from api.routes import stories, brief, responses, pipeline, response_generate, ministry
 from src import db
 
 
@@ -158,3 +158,4 @@ app.include_router(brief.router)
 app.include_router(responses.router)
 app.include_router(pipeline.router)
 app.include_router(response_generate.router)
+app.include_router(ministry.router)
