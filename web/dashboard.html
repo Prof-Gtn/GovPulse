@@ -46,7 +46,7 @@
      TABS
      ============================================================ -->
 <nav class="tabs">
-    <div class="tabs-inner">
+    <div class="tabs-inner" id="tabsInner">
         <button class="tab active" data-tab="coverage">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 6h16M4 12h16M4 18h10"/>
@@ -65,14 +65,22 @@
                 <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
             </svg>
             Brief
-                    <button class="tab" data-tab="audit">
+        </button>
+        <button class="tab" data-tab="audit">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/>
                 <path d="M12 6v6l4 2"/>
             </svg>
             Audit
         </button>
-        </button>
+        <a href="admin.html" class="tab" id="tabAdmin" style="text-decoration:none; margin-left:auto;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+            Admin
+        </a>
     </div>
 </nav>
 
@@ -341,7 +349,7 @@
                        placeholder="Search by user, story, or action…">
             </div>
 
-            <div class="table-wrap" style="max-height:600px;">
+            <div class="table-wrap" style="max-height:520px;">
                 <table class="stack">
                     <thead>
                         <tr>
@@ -459,6 +467,15 @@
     "use strict";
 
     if (!requireLogin()) return;
+    
+        // Hide admin link for non-admins
+    document.addEventListener("DOMContentLoaded", () => {
+        const user = getUser() || {};
+        if (user.role !== "admin") {
+            const adminTab = document.getElementById("tabAdmin");
+            if (adminTab) adminTab.style.display = "none";
+        }
+    });
 
     // ---------------------------------------------------------
     // Helpers

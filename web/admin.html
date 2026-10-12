@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management — GovPulse</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+<!-- TOP NAV -->
+<header class="topnav">
+    <div class="topnav-inner">
+        <div class="brand">
+            <a href="dashboard.html" class="brand-mark" style="text-decoration:none;">
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                    <path d="M1 12h5l3-9 4 16 3-7h5" stroke="#0F2540" stroke-width="2.2" stroke-linejoin="miter"/>
+                </svg>
+            </a>
+            <div class="brand-text">
+                <div class="brand-name">GovPulse</div>
+                <div class="brand-sub">Administration · MICT</div>
+            </div>
+        </div>
+
+        <div class="user-menu">
+            <div class="user-info">
+                <div class="user-label">Admin</div>
+                <div class="user-name" id="userName">…</div>
+            </div>
+            <div class="user-avatar" id="userAvatar">–</div>
+            <button class="btn-logout" id="btnLogout">Logout</button>
+        </div>
+    </div>
+</header>
+
+<main class="main">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+        <div>
+            <h1>User Management</h1>
+            <div class="sub">Create accounts, assign roles, control access</div>
+        </div>
+        <div class="actions">
+            <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'">
+                ← Back to Dashboard
+            </button>
+            <button class="btn btn-primary" id="btnNewUser">
+                + New User
+            </button>
+        </div>
+    </div>
+
+    <!-- SYSTEM STATS -->
+    <div class="stats-grid" style="grid-template-columns:repeat(5,1fr); margin-bottom:20px;">
+        <div class="stat-card total">
+            <div class="stat-label">Total Users</div>
+            <div class="stat-value" id="statUsers" style="font-size:26px;">–</div>
+            <div class="stat-sub" id="statUsersSub">&nbsp;</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Admins</div>
+            <div class="stat-value" id="statAdmins" style="font-size:26px;">–</div>
+            <div class="stat-sub">full access</div>
+        </div>
+        <div class="stat-card neutral">
+            <div class="stat-label">Ministry Officers</div>
+            <div class="stat-value" id="statMinistry" style="font-size:26px;">–</div>
+            <div class="stat-sub">scoped access</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Stories</div>
+            <div class="stat-value" id="statStories" style="font-size:26px;">–</div>
+            <div class="stat-sub">in database</div>
+        </div>
+        <div class="stat-card positive">
+            <div class="stat-label">Audit Events</div>
+            <div class="stat-value" id="statAudit" style="font-size:26px;">–</div>
+            <div class="stat-sub">logged actions</div>
+        </div>
+    </div>
+
+    <!-- USERS PANEL -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2>All Users</h2>
+            <span class="note" id="usersCount"></span>
+        </div>
+
+        <div class="filters">
+            <div id="roleChips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+            <input type="search"
+                   class="search-input"
+                   id="userSearch"
+                   placeholder="Search by name, username, or ministry…">
+        </div>
+
+        <div class="table-wrap">
+            <table class="stack">
+                <thead>
+                    <tr>
+                        <th style="width:170px">Username</th>
+                        <th style="width:200px">Name</th>
+                        <th style="width:120px">Role</th>
+                        <th>Ministry</th>
+                        <th style="width:180px">Last Login</th>
+                        <th style="width:140px">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="usersBody">
+                    <tr><td colspan="6" class="empty">Loading users…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</main>
+
+<!-- CREATE / EDIT USER MODAL -->
+<div class="modal-overlay" id="userModal">
+    <div class="modal" role="dialog" aria-modal="true" style="max-width:560px;">
+
+        <div class="modal-header">
+            <div class="label" id="modalLabel">User Management</div>
+            <h3 id="modalTitle">Create New User</h3>
+            <div class="meta" id="modalMeta">All fields are required unless marked optional</div>
+        </div>
+
+        <div class="modal-body">
+
+            <div class="modal-section">
+                <div class="modal-section-label">Username</div>
+                <input type="text" class="modal-textarea" id="fUsername"
+                       style="min-height:auto; padding:10px;" />
+                <div class="note" id="fUsernameHint"
+                     style="margin-top:4px; font-size:11px; color:var(--mute);">
+                    Lowercase, no spaces. Used to log in.
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <div class="modal-section-label">Full Name</div>
+                <input type="text" class="modal-textarea" id="fName"
+                       style="min-height:auto; padding:10px;" />
+            </div>
+
+            <div class="modal-section">
+                <div class="modal-section-label">Email</div>
+                <input type="email" class="modal-textarea" id="fEmail"
+                       style="min-height:auto; padding:10px;" />
+            </div>
+
+            <div class="modal-section">
+                <div class="modal-section-label">Role</div>
+                <select id="fRole" class="modal-textarea" style="min-height:auto; padding:10px;">
+                    <option value="admin">Admin — full access</option>
+                    <option value="analyst">Analyst — full access except user management</option>
+                    <option value="ministry">Ministry — sees only their ministry</option>
+                    <option value="oversight">Oversight — read-only audit + analytics</option>
+                </select>
+            </div>
+
+            <div class="modal-section" id="ministrySection" style="display:none;">
+                <div class="modal-section-label">Ministry Assignment</div>
+                <input type="text" class="modal-textarea" id="fMinistry"
+                       placeholder="e.g. Ministry of Health and Social Services"
+                       style="min-height:auto; padding:10px;" />
+            </div>
+
+            <div class="modal-section">
+                <div class="modal-section-label">
+                    <span id="passwordLabel">Password</span>
+                </div>
+                <input type="password" class="modal-textarea" id="fPassword"
+                       style="min-height:auto; padding:10px;" />
+                <div class="note" id="passwordHint"
+                     style="margin-top:4px; font-size:11px; color:var(--mute);">
+                    Minimum 8 characters. The user can change it after first login.
+                </div>
+            </div>
+
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-ghost" id="modalCancel">Cancel</button>
+            <button class="btn btn-primary" id="modalSave">Create User</button>
+        </div>
+
+    </div>
+</div>
+
+<!-- DELETE CONFIRMATION MODAL -->
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal" role="dialog" style="max-width:480px;">
+        <div class="modal-header" style="background:var(--negative);">
+            <div class="label" style="color:#FEE2E2;">Confirm Deletion</div>
+            <h3 id="deleteTitle">Delete User</h3>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:14px; color:var(--ink-2); line-height:1.6;">
+                Are you sure you want to delete <b id="deleteName">this user</b>?
+                This action cannot be undone. Their login will stop working immediately.
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" id="deleteCancel">Cancel</button>
+            <button class="btn" id="deleteConfirm"
+                    style="background:var(--negative); color:white;">
+                Delete User
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/api.js"></script>
+<script>
+(function () {
+    "use strict";
+
+    // ---------------------------------------------------------
+    // AUTH GUARD — admins only
+    // ---------------------------------------------------------
+    if (!requireLogin()) return;
+
+    const user = getUser() || {};
+    if (user.role !== "admin") {
+        alert("Only administrators can access this page.");
+        window.location.href = "dashboard.html";
+        return;
+    }
+
+    // ---------------------------------------------------------
+    // HELPERS
+    // ---------------------------------------------------------
+    const $ = (s) => document.querySelector(s);
+    const $$ = (s) => [...document.querySelectorAll(s)];
+
+    const escapeHtml = (s) =>
+        String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
+            "&": "&amp;", "<": "&lt;", ">": "&gt;",
+            '"': "&quot;", "'": "&#39;",
+        }[c]));
+
+    const showToast = (msg) => {
+        const t = $("#toast");
+        t.textContent = msg;
+        t.style.display = "block";
+        clearTimeout(showToast._h);
+        showToast._h = setTimeout(() => (t.style.display = "none"), 3200);
+    };
+
+    const fmtDate = (iso) => {
+        if (!iso) return "—";
+        try {
+            const d = new Date(iso);
+            return d.toLocaleString("en-GB", {
+                day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+            });
+        } catch { return iso; }
+    };
+
+    const ROLE_LABELS = {
+        admin:     { label: "Admin",     color: "#0F2540" },
+        analyst:   { label: "Analyst",   color: "#2563EB" },
+        ministry:  { label: "Ministry",  color: "#7C3AED" },
+        oversight: { label: "Oversight", color: "#0891B2" },
+    };
+
+    // ---------------------------------------------------------
+    // STATE
+    // ---------------------------------------------------------
+    let users = [];
+    let roleFilter = "all";
+    let editingUsername = null;   // null = create, else edit
+    let deleteTarget = null;
+
+    // ---------------------------------------------------------
+    // INIT
+    // ---------------------------------------------------------
+    $("#userName").textContent = user.name || user.username || "Admin";
+    $("#userAvatar").textContent = (user.name || user.username || "A")
+        .split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+    $("#btnLogout").onclick = logout;
+
+    // ---------------------------------------------------------
+    // LOAD DATA
+    // ---------------------------------------------------------
+    async function loadAll() {
+        try {
+            const [uRes, sRes] = await Promise.all([
+                apiFetch("/admin/users").then((r) => r.json()),
+                apiFetch("/admin/stats").then((r) => r.json()),
+            ]);
+
+            users = uRes.users || [];
+
+            // Stats
+            $("#statUsers").textContent = sRes.users || users.length;
+            $("#statAdmins").textContent = (sRes.roles && sRes.roles.admin) || 0;
+            $("#statMinistry").textContent = (sRes.roles && sRes.roles.ministry) || 0;
+            $("#statStories").textContent = sRes.stories || 0;
+            $("#statAudit").textContent = sRes.audit_events || 0;
+
+            renderUsers();
+        } catch (e) {
+            console.error("Load failed:", e);
+            showToast("Could not load users.");
+        }
+    }
+
+    // ---------------------------------------------------------
+    // RENDER USERS
+    // ---------------------------------------------------------
+    function renderUsers() {
+        const tbody = $("#usersBody");
+        const search = ($("#userSearch").value || "").toLowerCase();
+
+        // Chip counts
+        const counts = { all: users.length };
+        for (const u of users) {
+            counts[u.role] = (counts[u.role] || 0) + 1;
+        }
+
+        const chipDefs = [
+            ["all", "All"],
+            ["admin", "Admin"],
+            ["analyst", "Analyst"],
+            ["ministry", "Ministry"],
+            ["oversight", "Oversight"],
+        ];
+        $("#roleChips").innerHTML = chipDefs
+            .map(([k, label]) => `
+                <button class="chip ${roleFilter === k ? "active" : ""}" data-role-filter="${k}">
+                    ${label}
+                    <span class="chip-count">${counts[k] || 0}</span>
+                </button>
+            `).join("");
+
+        $$("#roleChips .chip").forEach((el) => {
+            el.onclick = () => {
+                roleFilter = el.dataset.roleFilter;
+                renderUsers();
+            };
+        });
+
+        // Filter
+        let filtered = users;
+        if (roleFilter !== "all") {
+            filtered = filtered.filter((u) => u.role === roleFilter);
+        }
+        if (search) {
+            filtered = filtered.filter((u) =>
+                ((u.username || "") + " " + (u.name || "") + " " + (u.ministry || ""))
+                    .toLowerCase()
+                    .includes(search)
+            );
+        }
+
+        $("#usersCount").textContent =
+            `${filtered.length} of ${users.length} users`;
+
+        if (!filtered.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty">No users match.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filtered.map((u) => {
+            const meta = ROLE_LABELS[u.role] || { label: u.role, color: "#64748B" };
+            const isMe = u.username === user.username;
+
+            return `
+                <tr>
+                    <td data-label="Username" class="mono" style="font-weight:500; color:var(--ink);">
+                        ${escapeHtml(u.username)}
+                        ${isMe ? '<span style="font-size:10px; color:var(--mute); margin-left:6px;">(you)</span>' : ''}
+                    </td>
+                    <td data-label="Name" style="color:var(--ink-2);">
+                        ${escapeHtml(u.name || "—")}
+                    </td>
+                    <td data-label="Role">
+                        <span class="pill" style="
+                            background:${meta.color}15;
+                            color:${meta.color};
+                            border:1px solid ${meta.color}30;
+                            font-size:11px;
+                            padding:3px 9px;
+                        ">
+                            ${meta.label}
+                        </span>
+                    </td>
+                    <td data-label="Ministry" style="font-size:12.5px; color:var(--ink-2);">
+                        ${escapeHtml(u.ministry || "—")}
+                    </td>
+                    <td data-label="Last Login" class="mono" style="font-size:12px; color:var(--mute);">
+                        ${fmtDate(u.last_login)}
+                    </td>
+                    <td data-label="Action">
+                        <button class="btn btn-secondary btn-sm" data-edit="${escapeHtml(u.username)}">
+                            Edit
+                        </button>
+                        ${!isMe ? `
+                            <button class="btn btn-ghost btn-sm" data-delete="${escapeHtml(u.username)}"
+                                    style="color:var(--negative);">
+                                Delete
+                            </button>
+                        ` : ""}
+                    </td>
+                </tr>
+            `;
+        }).join("");
+
+        // Wire buttons
+        $$("#usersBody button[data-edit]").forEach((b) => {
+            b.onclick = () => openEditModal(b.dataset.edit);
+        });
+        $$("#usersBody button[data-delete]").forEach((b) => {
+            b.onclick = () => openDeleteModal(b.dataset.delete);
+        });
+    }
+
+    $("#userSearch").oninput = renderUsers;
+
+    // ---------------------------------------------------------
+    // CREATE / EDIT USER
+    // ---------------------------------------------------------
+    $("#btnNewUser").onclick = () => openCreateModal();
+
+    function openCreateModal() {
+        editingUsername = null;
+        $("#modalLabel").textContent = "Create User";
+        $("#modalTitle").textContent = "New User Account";
+        $("#modalMeta").textContent = "All fields are required unless marked optional";
+        $("#modalSave").textContent = "Create User";
+
+        $("#fUsername").value = "";
+        $("#fUsername").disabled = false;
+        $("#fUsernameHint").textContent = "Lowercase, no spaces. Used to log in.";
+        $("#fName").value = "";
+        $("#fEmail").value = "";
+        $("#fRole").value = "ministry";
+        $("#fMinistry").value = "";
+        $("#fPassword").value = "";
+        $("#passwordLabel").textContent = "Password";
+        $("#passwordHint").textContent = "Minimum 8 characters. The user can change it after first login.";
+
+        updateMinistryVisibility();
+        $("#userModal").classList.add("open");
+    }
+
+    function openEditModal(username) {
+        const u = users.find((x) => x.username === username);
+        if (!u) return;
+
+        editingUsername = username;
+        $("#modalLabel").textContent = "Edit User";
+        $("#modalTitle").textContent = u.name || u.username;
+        $("#modalMeta").textContent = "Leave password blank to keep the current one";
+        $("#modalSave").textContent = "Save Changes";
+
+        $("#fUsername").value = u.username;
+        $("#fUsername").disabled = true;
+        $("#fUsernameHint").textContent = "Username cannot be changed.";
+        $("#fName").value = u.name || "";
+        $("#fEmail").value = u.email || "";
+        $("#fRole").value = u.role || "ministry";
+        $("#fMinistry").value = u.ministry || "";
+        $("#fPassword").value = "";
+        $("#passwordLabel").textContent = "New Password (optional)";
+        $("#passwordHint").textContent = "Leave blank to keep the existing password.";
+
+        updateMinistryVisibility();
+        $("#userModal").classList.add("open");
+    }
+
+    function updateMinistryVisibility() {
+        const role = $("#fRole").value;
+        $("#ministrySection").style.display = role === "ministry" ? "block" : "none";
+    }
+
+    $("#fRole").onchange = updateMinistryVisibility;
+
+    $("#modalCancel").onclick = () => {
+        $("#userModal").classList.remove("open");
+    };
+    $("#userModal").onclick = (e) => {
+        if (e.target.id === "userModal") $("#userModal").classList.remove("open");
+    };
+
+    $("#modalSave").addEventListener("click", async function () {
+        const btn = this;
+        const original = btn.textContent;
+
+        const username = $("#fUsername").value.trim();
+        const name = $("#fName").value.trim();
+        const email = $("#fEmail").value.trim();
+        const role = $("#fRole").value;
+        const ministry = $("#fMinistry").value.trim();
+        const password = $("#fPassword").value;
+
+        // Validation
+        if (!username) { showToast("Username is required."); return; }
+        if (!name) { showToast("Full name is required."); return; }
+        if (!email) { showToast("Email is required."); return; }
+
+        if (!editingUsername) {
+            if (!password) { showToast("Password is required for new users."); return; }
+            if (password.length < 8) { showToast("Password must be at least 8 characters."); return; }
+        }
+
+        if (role === "ministry" && !ministry) {
+            showToast("Ministry assignment is required for ministry users.");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = editingUsername ? "Saving…" : "Creating…";
+
+        try {
+            let r;
+            if (editingUsername) {
+                // Update
+                const body = { name, email, role, ministry };
+                if (password) body.password = password;
+
+                r = await apiFetch(`/admin/users/${encodeURIComponent(editingUsername)}`, {
+                    method: "PUT",
+                    body: JSON.stringify(body),
+                });
+            } else {
+                // Create
+                r = await apiFetch("/admin/users", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        username, name, email, role, ministry, password,
+                    }),
+                });
+            }
+
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                throw new Error(err.detail || `HTTP ${r.status}`);
+            }
+
+            $("#userModal").classList.remove("open");
+            showToast(editingUsername ? "✅ User updated." : "✅ User created.");
+            await loadAll();
+        } catch (e) {
+            showToast("Error: " + e.message);
+        }
+
+        btn.disabled = false;
+        btn.textContent = original;
+    });
+
+    // ---------------------------------------------------------
+    // DELETE USER
+    // ---------------------------------------------------------
+    function openDeleteModal(username) {
+        const u = users.find((x) => x.username === username);
+        if (!u) return;
+        deleteTarget = username;
+        $("#deleteTitle").textContent = `Delete ${u.name || u.username}?`;
+        $("#deleteName").textContent = `${u.name} (${u.username})`;
+        $("#deleteModal").classList.add("open");
+    }
+
+    $("#deleteCancel").onclick = () => {
+        $("#deleteModal").classList.remove("open");
+        deleteTarget = null;
+    };
+
+    $("#deleteModal").onclick = (e) => {
+        if (e.target.id === "deleteModal") {
+            $("#deleteModal").classList.remove("open");
+            deleteTarget = null;
+        }
+    };
+
+    $("#deleteConfirm").addEventListener("click", async function () {
+        if (!deleteTarget) return;
+
+        const btn = this;
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Deleting…";
+
+        try {
+            const r = await apiFetch(`/admin/users/${encodeURIComponent(deleteTarget)}`, {
+                method: "DELETE",
+            });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                throw new Error(err.detail || `HTTP ${r.status}`);
+            }
+            $("#deleteModal").classList.remove("open");
+            showToast("✅ User deleted.");
+            deleteTarget = null;
+            await loadAll();
+        } catch (e) {
+            showToast("Error: " + e.message);
+        }
+
+        btn.disabled = false;
+        btn.textContent = original;
+    });
+
+    // ---------------------------------------------------------
+    // START
+    // ---------------------------------------------------------
+    loadAll();
+
+})();
+</script>
+
+</body>
+</html>
