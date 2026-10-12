@@ -192,11 +192,21 @@ def scrape_all():
     print(f"      Found {len(nbc)}")
     all_stories.extend(nbc)
 
-    print(f"\n[4/4] Fetching full text for {len(all_stories)} stories...")
-    for i, story in enumerate(all_stories, 1):
-        print(f"      [{i}/{len(all_stories)}] {story['headline'][:60]}...")
+    print(f"\n[4/4] Fetching full text for {len(all_stories)} stories (parallel)...")
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _fetch_one(idx_story):
+        idx, story = idx_story
+        print(f"      [{idx}/{len(all_stories)}] {story['headline'][:60]}...")
         story["body"] = fetch_article_body(story["url"])
-        time.sleep(0.2)
+        return story
+
+    # Fetch 5 at a time to be polite but fast
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(_fetch_one, (i, s)) for i, s in enumerate(all_stories, 1)]
+        for f in as_completed(futures):
+            f.result()  # Ensures exceptions are raised
 
     return all_stories
 

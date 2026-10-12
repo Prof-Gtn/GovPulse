@@ -183,24 +183,38 @@ def process_negative_stories(input_file="data/processed/mapped.json",
     negatives = [s for s in stories if s.get("sentiment") == "Negative"]
     print(f"Found {len(negatives)} negative stories.\n")
 
-    results = []
-    for i, story in enumerate(negatives, 1):
-        print(f"  [{i}/{len(negatives)}] {story['headline'][:60]}...")
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    results = [None] * len(negatives)
+
+    def _process_one(idx_story):
+        idx, story = idx_story
+        print(f"  [{idx}/{len(negatives)}] {story['headline'][:60]}...")
         response = draft_response(story)
 
-        results.append({
+        entry = {
             "headline": story["headline"],
             "oma": story.get("oma", []),
             "sentiment": story["sentiment"],
             "response": response,
-        })
+        }
 
         if response["status"] == "ok":
-            print(f"      [OK] Draft generated ({len(response['draft'])} chars)")
+            print(f"      [OK] [{idx}] Draft generated ({len(response['draft'])} chars)")
         else:
-            print(f"      [SKIP] {response.get('reason', 'unknown')}")
+            print(f"      [SKIP] [{idx}] {response.get('reason', 'unknown')}")
 
-        time.sleep(1.5)
+        return idx - 1, entry
+
+    # Process 3 at a time
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [executor.submit(_process_one, (i, s)) for i, s in enumerate(negatives, 1)]
+        for f in as_completed(futures):
+            idx, entry = f.result()
+            results[idx] = entry
+
+    # Remove any None entries (shouldn't happen but safe)
+    results = [r for r in results if r]
 
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, "w", encoding="utf-8-sig") as f:
