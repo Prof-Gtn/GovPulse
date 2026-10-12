@@ -1,0 +1,7 @@
+{
+  "enabled": [
+    {"name": "The Namibian", "url": "https://www.namibian.com.na/", "type": "online", "active": true},
+    {"name": "New Era", "url": "https://neweralive.na/", "type": "online", "active": true},
+    {"name": "NBC Digital", "url": "https://www.nbc.na/news", "type": "online", "active": false}
+  ]
+}

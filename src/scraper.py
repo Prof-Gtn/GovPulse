@@ -33,7 +33,7 @@ def scrape_namibian():
         response.encoding = response.apparent_encoding
         soup = BeautifulSoup(response.text, "lxml")
 
-        for article in soup.find_all("article", limit=20):
+        for article in soup.find_all("article"):
             headline_tag = article.find("h2") or article.find("h3") or article.find("h4")
             link_tag = article.find("a", href=True)
 
@@ -66,7 +66,7 @@ def scrape_newera():
         soup = BeautifulSoup(response.text, "lxml")
 
         # New Era wraps each card in <article class="cmsmasters_post_masonry">
-        for article in soup.find_all("article", limit=20):
+        for article in soup.find_all("article"):
             classes = article.get("class", [])
             if not any("cmsmasters_post" in c for c in classes):
                 continue
@@ -115,7 +115,7 @@ def scrape_nbc_digital():
         response.encoding = response.apparent_encoding
         soup = BeautifulSoup(response.text, "lxml")
 
-        for article in soup.find_all("article", limit=20):
+        for article in soup.find_all("article"):
             headline_tag = article.find("h2") or article.find("h3") or article.find("h4")
             link_tag = article.find("a", href=True)
 
@@ -196,7 +196,7 @@ def scrape_all():
     for i, story in enumerate(all_stories, 1):
         print(f"      [{i}/{len(all_stories)}] {story['headline'][:60]}...")
         story["body"] = fetch_article_body(story["url"])
-        time.sleep(0.5)
+        time.sleep(0.2)
 
     return all_stories
 

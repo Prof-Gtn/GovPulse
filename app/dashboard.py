@@ -11,6 +11,10 @@ from datetime import datetime
 import streamlit as st
 import pandas as pd
 
+# Add project root to path for src imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.auth import require_login, render_user_header, get_user_role, is_admin
+
 
 # ------------------------------------------------------------------
 # PAGE CONFIG
@@ -22,14 +26,32 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ------------------------------------------------------------------
+# AUTHENTICATION GATE
+# ------------------------------------------------------------------
+config, authenticator, current_user = require_login("Dashboard")
+user_role = get_user_role(current_user)
+user_is_admin = is_admin(current_user)
 
 # ------------------------------------------------------------------
-# PATHS
+# PATHS (anchored to project root, not cwd)
 # ------------------------------------------------------------------
-MAPPED_FILE    = "data/processed/mapped.json"
-RESPONSES_FILE = "data/processed/responses.json"
-APPROVALS_FILE = "data/processed/approvals.json"
-UPLOADS_DIR    = "data/uploads"
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+
+MAPPED_FILE    = os.path.join(DATA_DIR, "processed", "mapped.json")
+RESPONSES_FILE = os.path.join(DATA_DIR, "processed", "responses.json")
+APPROVALS_FILE = os.path.join(DATA_DIR, "processed", "approvals.json")
+XLSX_FILE      = os.path.join(DATA_DIR, "processed", "daily_brief.xlsx")
+PDF_FILE       = os.path.join(DATA_DIR, "processed", "daily_brief.pdf")
+UPLOADS_DIR    = os.path.join(DATA_DIR, "uploads")
+
+SCRAPER_SCRIPT       = os.path.join(PROJECT_ROOT, "src", "scraper.py")
+ANALYZER_SCRIPT      = os.path.join(PROJECT_ROOT, "src", "analyzer.py")
+MAPPER_SCRIPT        = os.path.join(PROJECT_ROOT, "src", "mapper.py")
+REPORT_SCRIPT        = os.path.join(PROJECT_ROOT, "src", "report.py")
+RESPONSE_SCRIPT      = os.path.join(PROJECT_ROOT, "src", "response_desk.py")
+PDF_INGEST_SCRIPT    = os.path.join(PROJECT_ROOT, "src", "pdf_ingest.py")
 
 
 # ------------------------------------------------------------------
@@ -53,11 +75,11 @@ def save_json(data, path):
 
 def run_pipeline():
     steps = [
-        ("Scraping news sources",  "src/scraper.py"),
-        ("Analyzing stories",      "src/analyzer.py"),
-        ("Mapping to government",  "src/mapper.py"),
-        ("Generating daily brief", "src/report.py"),
-        ("Drafting responses",     "src/response_desk.py"),
+        ("Scraping news sources",  SCRAPER_SCRIPT),
+        ("Analyzing stories",      ANALYZER_SCRIPT),
+        ("Mapping to government",  MAPPER_SCRIPT),
+        ("Generating daily brief", REPORT_SCRIPT),
+        ("Drafting responses",     RESPONSE_SCRIPT),
     ]
     progress = st.progress(0, text="Starting pipeline...")
     for i, (label, script) in enumerate(steps):
@@ -70,6 +92,7 @@ def run_pipeline():
                 encoding="utf-8",
                 errors="replace",
                 timeout=180,
+                cwd=PROJECT_ROOT,
             )
             if r.returncode != 0:
                 st.error(f"Error in {script}: {r.stderr[:500]}")
@@ -85,10 +108,10 @@ def run_pipeline():
 def run_downstream_stages():
     """Run analyzer → mapper → report → response_desk."""
     stages = [
-        "src/analyzer.py",
-        "src/mapper.py",
-        "src/report.py",
-        "src/response_desk.py",
+        ANALYZER_SCRIPT,
+        MAPPER_SCRIPT,
+        REPORT_SCRIPT,
+        RESPONSE_SCRIPT,
     ]
     for script in stages:
         r = subprocess.run(
@@ -97,6 +120,7 @@ def run_downstream_stages():
             text=True,
             encoding="utf-8",
             errors="replace",
+            cwd=PROJECT_ROOT,
         )
         if r.returncode != 0:
             return False, script, r.stderr[:300]
@@ -130,10 +154,14 @@ st.markdown(
         html, body, [class*="css"] { font-family: 'Segoe UI', Roboto, sans-serif; }
         .stApp { background: var(--bg); }
 
+        /* Hide Streamlit's auto-generated multi-page nav */
+        [data-testid="stSidebarNav"] { display: none; }
+
         /* ---------------- SIDEBAR ---------------- */
         section[data-testid="stSidebar"] { background: #0F2540; }
         section[data-testid="stSidebar"] * { color: #E5EAF3 !important; }
         section[data-testid="stSidebar"] hr { border-color: #1E3A5F; }
+
         section[data-testid="stSidebar"] .stButton > button {
             background: #1E3A5F !important;
             color: #FFFFFF !important;
@@ -147,11 +175,20 @@ st.markdown(
             background: #2A4A73 !important;
             color: #FFFFFF !important;
         }
-        section[data-testid="stSidebar"] .stButton > button:active,
-        section[data-testid="stSidebar"] .stButton > button:focus {
-            background: #163A5C !important;
+
+        /* Sidebar page links */
+        section[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] {
+            background: #1E3A5F !important;
             color: #FFFFFF !important;
-            border: none !important;
+            border-radius: 6px !important;
+            padding: 8px 12px !important;
+            display: block !important;
+            text-decoration: none !important;
+            font-weight: 500 !important;
+            margin-bottom: 4px !important;
+        }
+        section[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:hover {
+            background: #2A4A73 !important;
         }
 
         /* ---------------- GLOBAL BUTTONS ---------------- */
@@ -165,26 +202,11 @@ st.markdown(
             border-radius: 6px !important;
             font-weight: 500 !important;
         }
-
         .stButton > button:hover,
-        .stDownloadButton > button:hover,
-        button[kind="secondary"]:hover,
-        button[kind="primary"]:hover {
+        .stDownloadButton > button:hover {
             background: #2A4A73 !important;
             color: #FFFFFF !important;
-            border: none !important;
         }
-
-        .stButton > button:active,
-        .stButton > button:focus,
-        .stDownloadButton > button:active,
-        .stDownloadButton > button:focus {
-            background: #163A5C !important;
-            color: #FFFFFF !important;
-            border: none !important;
-            box-shadow: 0 0 0 2px rgba(30, 90, 168, 0.3) !important;
-        }
-
         .stButton > button:disabled,
         .stDownloadButton > button:disabled {
             background: #D1D5DB !important;
@@ -215,12 +237,8 @@ st.markdown(
             -webkit-text-fill-color: #9CA3AF !important;
             opacity: 1 !important;
         }
-        div[data-testid="stTextInput"] div[data-baseweb="input"]:focus-within {
-            border-color: #1E3A5F !important;
-            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.15) !important;
-        }
 
-        /* ---------------- TEXT AREA (edit mode) ---------------- */
+        /* ---------------- TEXT AREA ---------------- */
         div[data-testid="stTextArea"] textarea {
             background: #FFFFFF !important;
             color: #111827 !important;
@@ -296,7 +314,7 @@ st.markdown(
 
 
 # ------------------------------------------------------------------
-# SESSION STATE (always reload from disk)
+# SESSION STATE
 # ------------------------------------------------------------------
 st.session_state.mapped = load_json(MAPPED_FILE)
 st.session_state.responses = load_json(RESPONSES_FILE)
@@ -345,36 +363,34 @@ if st.session_state.dark_mode:
 # SIDEBAR
 # ------------------------------------------------------------------
 with st.sidebar:
-    st.markdown(
-        """
-        <div style="padding: 12px 4px 20px 4px;">
-            <div style="font-size: 18px; font-weight: 700; color: white;">
-                🛡️ GovPulse
-            </div>
-            <div style="font-size: 11px; color: #8899B0; margin-top: 4px;">
-                Media Intelligence
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    # Render user header + logout (from auth module)
+    render_user_header(authenticator, current_user)
 
     # -------- NAVIGATION --------
     st.markdown("##### NAVIGATION")
-    st.button("📊  Dashboard", use_container_width=True)
-    st.button("📡  Monitoring", use_container_width=True)
-    st.button("⚙️  Settings", use_container_width=True)
+    st.page_link("dashboard.py", label="📊  Dashboard")
+    st.page_link("pages/1_Edit_Brief.py", label="📝  Edit Brief")
+    st.toggle("🌙 Dark mode", key="dark_mode")
+
+    # -------- NAVIGATION --------
+    st.markdown("##### NAVIGATION")
+    st.page_link("dashboard.py", label="📊  Dashboard")
+    st.page_link("pages/1_Edit_Brief.py", label="📝  Edit Brief")
     st.toggle("🌙 Dark mode", key="dark_mode")
 
     # -------- PIPELINE --------
     st.divider()
     st.markdown("##### PIPELINE")
-    if st.button("🔄  Run Full Pipeline", use_container_width=True):
+    if st.button("🔄  Generate Today's Brief", use_container_width=True):
         if run_pipeline():
             st.rerun()
 
     if st.button("📄  Regenerate Brief", use_container_width=True):
-        subprocess.run([sys.executable, "src/report.py"], check=False)
+        subprocess.run(
+            [sys.executable, REPORT_SCRIPT],
+            cwd=PROJECT_ROOT,
+            check=False,
+        )
         st.success("Brief regenerated.")
         st.rerun()
 
@@ -402,11 +418,12 @@ with st.sidebar:
 
         with st.spinner("Extracting text from PDF..."):
             r = subprocess.run(
-                [sys.executable, "src/pdf_ingest.py", path, pdf_source],
+                [sys.executable, PDF_INGEST_SCRIPT, path, pdf_source],
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                cwd=PROJECT_ROOT,
             )
 
         if r.returncode != 0:
@@ -444,8 +461,10 @@ with st.sidebar:
 
     st.divider()
     st.caption(f"Loaded: {len(st.session_state.mapped)} stories")
-    drafts_ok = sum(1 for r in st.session_state.responses
-                    if r.get("response", {}).get("status") == "ok")
+    drafts_ok = sum(
+        1 for r in st.session_state.responses
+        if r.get("response", {}).get("status") == "ok"
+    )
     st.caption(f"Drafts: {drafts_ok}")
 
 
@@ -668,7 +687,6 @@ with right:
         approved = key in st.session_state.approvals
         editing = st.session_state.editing_headline == key
 
-        # ---------- EDIT MODE ----------
         if editing:
             st.markdown(
                 f"<div style='font-size:11px; color:var(--muted); margin-bottom:8px;'>"
@@ -695,8 +713,6 @@ with right:
             if e2.button("Cancel", use_container_width=True):
                 st.session_state.editing_headline = None
                 st.rerun()
-
-        # ---------- NORMAL VIEW ----------
         else:
             st.markdown(f"""
                 <div class="gp-response">
@@ -710,7 +726,6 @@ with right:
                 </div>
             """, unsafe_allow_html=True)
 
-        # ---------- PRECEDENT VIEWER ----------
         if r.get("precedents"):
             with st.expander("📄 View Precedent Statements"):
                 for p in r["precedents"]:
@@ -732,24 +747,25 @@ with right:
                     st.markdown("<div style='height:8px;'></div>",
                                 unsafe_allow_html=True)
 
-        # ---------- ACTION BUTTONS ----------
         if not editing:
             bc1, bc2, bc3 = st.columns(3)
-            if bc1.button("✅ Approve", use_container_width=True, disabled=approved):
+            if bc1.button("✅ Approve", use_container_width=True, disabled=approved or not user_is_admin):
                 st.session_state.approvals[key] = {
-                    "approved_at": datetime.now().isoformat(),
-                    "ministry": r.get("ministry", ""),
-                    "final_text": r["draft"],
-                }
+        ...
+    }
+
+            if not user_is_admin and not approved:
+                st.caption("Only administrators can approve responses.")
                 save_json(st.session_state.approvals, APPROVALS_FILE)
 
                 with st.spinner("Regenerating daily brief with approved response..."):
                     subprocess.run(
-                        [sys.executable, "src/report.py"],
+                        [sys.executable, REPORT_SCRIPT],
                         capture_output=True,
                         text=True,
                         encoding="utf-8",
                         errors="replace",
+                        cwd=PROJECT_ROOT,
                     )
                 st.rerun()
 
@@ -842,9 +858,8 @@ st.markdown("<br>", unsafe_allow_html=True)
 bcol1, bcol2, bcol3 = st.columns([1, 1, 3])
 
 with bcol1:
-    xlsx_path = "data/processed/daily_brief.xlsx"
-    if os.path.exists(xlsx_path):
-        with open(xlsx_path, "rb") as f:
+    if os.path.exists(XLSX_FILE):
+        with open(XLSX_FILE, "rb") as f:
             st.download_button(
                 label="⬇️ Download Excel",
                 data=f.read(),
@@ -856,9 +871,8 @@ with bcol1:
         st.info("Run 'Regenerate Brief' to create the Excel.")
 
 with bcol2:
-    pdf_path = "data/processed/daily_brief.pdf"
-    if os.path.exists(pdf_path):
-        with open(pdf_path, "rb") as f:
+    if os.path.exists(PDF_FILE):
+        with open(PDF_FILE, "rb") as f:
             st.download_button(
                 label="⬇️ Download PDF",
                 data=f.read(),
@@ -871,10 +885,13 @@ with bcol2:
 
 with bcol3:
     approved_count = len(st.session_state.approvals)
-    drafts_ok = sum(1 for r in st.session_state.responses
-                    if r.get("response", {}).get("status") == "ok")
+    drafts_ok = sum(
+        1 for r in st.session_state.responses
+        if r.get("response", {}).get("status") == "ok"
+    )
     st.caption(
-        f"Stories: {total} | Mapped: {sum(1 for s in stories if s.get('oma') and s['oma'] != ['Unmapped'])} | "
+        f"Stories: {total} | "
+        f"Mapped: {sum(1 for s in stories if s.get('oma') and s['oma'] != ['Unmapped'])} | "
         f"Drafts: {drafts_ok} | Approved: {approved_count}"
     )
 

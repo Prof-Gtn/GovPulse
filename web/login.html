@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In — GovPulse</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        .gradient-bg {
+            background: linear-gradient(135deg, #0F2540 0%, #1A3556 60%, #0D3A6E 100%);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+
+    <!-- NAV -->
+    <nav class="gradient-bg text-white">
+        <div class="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+            <a href="index.html" class="flex items-center gap-2">
+                <span class="text-2xl">🛡️</span>
+                <span class="text-xl font-bold tracking-tight">GovPulse</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- LOGIN CARD -->
+    <main class="flex-1 flex items-center justify-center px-6 py-12">
+        <div class="w-full max-w-md">
+
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-slate-900 mb-2">Welcome back</h1>
+                <p class="text-slate-600">Sign in to access GovPulse</p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-8">
+
+                <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-6">
+                </div>
+
+                <form id="login-form">
+                    <div class="mb-5">
+                        <label for="username" class="block text-sm font-medium text-slate-700 mb-2">
+                            Username
+                        </label>
+                        <input type="text" id="username" name="username" required
+                               class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                               placeholder="Enter your username">
+                    </div>
+
+                    <div class="mb-6">
+                        <label for="password" class="block text-sm font-medium text-slate-700 mb-2">
+                            Password
+                        </label>
+                        <input type="password" id="password" name="password" required
+                               class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                               placeholder="Enter your password">
+                    </div>
+
+                    <button type="submit" id="login-btn"
+                            class="w-full gradient-bg text-white font-semibold py-3 rounded-lg hover:opacity-95 transition shadow-lg flex items-center justify-center gap-2">
+                        <span id="btn-text">Sign In</span>
+                        <span id="btn-spinner" class="hidden">
+                            <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                        </span>
+                    </button>
+                </form>
+
+                <div class="mt-6 pt-6 border-t border-slate-100">
+                    <div class="text-xs text-slate-500 text-center">
+                        Demo credentials: <b>lucia</b> / <b>changeme123</b>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="mt-6 text-center text-xs text-slate-500">
+                © 2026 GovPulse. Government Media Intelligence Platform.
+            </div>
+
+        </div>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script>
+        // If already logged in, redirect to dashboard
+        if (isLoggedIn()) {
+            window.location.href = "dashboard.html";
+        }
+
+        document.getElementById("login-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById("username").value.trim();
+            const password = document.getElementById("password").value;
+
+            const errorBox = document.getElementById("error-box");
+            const btnText = document.getElementById("btn-text");
+            const btnSpinner = document.getElementById("btn-spinner");
+            const btn = document.getElementById("login-btn");
+
+            errorBox.classList.add("hidden");
+            btnText.textContent = "Signing in...";
+            btnSpinner.classList.remove("hidden");
+            btn.disabled = true;
+
+            try {
+                await login(username, password);
+                window.location.href = "dashboard.html";
+            } catch (err) {
+                errorBox.textContent = err.message || "Login failed";
+                errorBox.classList.remove("hidden");
+                btnText.textContent = "Sign In";
+                btnSpinner.classList.add("hidden");
+                btn.disabled = false;
+            }
+        });
+    </script>
+
+</body>
+</html>

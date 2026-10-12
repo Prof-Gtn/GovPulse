@@ -10,3 +10,10 @@ streamlit
 python-dotenv
 groq
 nltk
+streamlit-authenticator
+pyyaml
+bcrypt
+fastapi
+uvicorn
+python-jose[cryptography]
+python-multipart

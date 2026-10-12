@@ -17,3 +17,6 @@ data/processed/*.json
 # OS
 .DS_Store
 Thumbs.db
+app/config.yaml
+.env
+app/config.yaml
