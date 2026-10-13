@@ -41,15 +41,18 @@ class StoryEditRequest(BaseModel):
 def list_stories(
     sentiment: Optional[str] = Query(None),
     source: Optional[str] = Query(None),
+    date: Optional[str] = Query(None, description="'today' to filter to today's stories"),
     user: dict = Depends(get_current_user),
 ):
     """
     Return stories.
+
     - Admin/Analyst/Oversight: all stories
     - Ministry: only their own ministry's stories
+    - If date='today': only stories whose scraped_at is today
+                      (falls back to the most recent day if today is empty)
     """
     role = user.get("role")
-    print(f"[DEBUG] list_stories: user={user.get('username')} role={role!r} ministry={user.get('ministry')!r}")
 
     if role == "ministry":
         ministry = user.get("ministry")
@@ -59,7 +62,25 @@ def list_stories(
     else:
         stories = db.get_stories(sentiment=sentiment, source=source)
 
-    print(f"[DEBUG] returning {len(stories)} stories for {user.get('username')}")
+    # Optional date filter
+    if date == "today":
+        from datetime import datetime as _dt
+        today = _dt.now().date().isoformat()
+        today_stories = [s for s in stories if (s.get("scraped_at") or "")[:10] == today]
+
+        if not today_stories and stories:
+            # Fallback: use the most recent day with data
+            dates = sorted(
+                set((s.get("scraped_at") or "")[:10] for s in stories if s.get("scraped_at")),
+                reverse=True,
+            )
+            if dates:
+                most_recent = dates[0]
+                today_stories = [
+                    s for s in stories if (s.get("scraped_at") or "")[:10] == most_recent
+                ]
+
+        stories = today_stories
 
     # Sort: negative first
     order = {"Negative": 0, "Neutral": 1, "Positive": 2}
@@ -103,29 +124,57 @@ def analytics_summary(days: int = 7, user: dict = Depends(get_current_user)):
         ministry = user.get("ministry")
         stories = [s for s in stories if ministry in (s.get("oma") or [])]
 
-    stories = _filter_by_days(stories, days)
+    # Find all story dates
+    dates_with_data = set()
+    for s in stories:
+        ts = s.get("scraped_at") or s.get("created_at") or ""
+        if ts:
+            dates_with_data.add(ts[:10])
 
-    pos = sum(1 for s in stories if s.get("sentiment") == "Positive")
-    neu = sum(1 for s in stories if s.get("sentiment") == "Neutral")
-    neg = sum(1 for s in stories if s.get("sentiment") == "Negative")
+    today = datetime.now().date()
+    today_str = today.isoformat()
 
-    # Response rate
-    neg_stories = [s for s in stories if s.get("sentiment") == "Negative"]
+    if days == 1:
+        # Today, or latest day with data if today is empty
+        if today_str in dates_with_data:
+            target_date = today
+        elif dates_with_data:
+            target_date = datetime.fromisoformat(max(dates_with_data)).date()
+        else:
+            target_date = today
+
+        target_str = target_date.isoformat()
+        filtered = [s for s in stories if (s.get("scraped_at") or s.get("created_at") or "")[:10] == target_str]
+    else:
+        span = min(days if days < 9999 else 30, 30)
+        anchor = today
+        if today_str not in dates_with_data and dates_with_data:
+            anchor = datetime.fromisoformat(max(dates_with_data)).date()
+        cutoff = (anchor - timedelta(days=span - 1)).isoformat()
+        filtered = [
+            s for s in stories
+            if (s.get("scraped_at") or s.get("created_at") or "")[:10] >= cutoff
+        ]
+
+    pos = sum(1 for s in filtered if s.get("sentiment") == "Positive")
+    neu = sum(1 for s in filtered if s.get("sentiment") == "Neutral")
+    neg = sum(1 for s in filtered if s.get("sentiment") == "Negative")
+
+    neg_stories = [s for s in filtered if s.get("sentiment") == "Negative"]
     approvals = db.get_approvals_as_dict()
     responded = len([s for s in neg_stories if s["headline"] in approvals])
     total_neg = len(neg_stories)
     rate = round((responded / total_neg * 100) if total_neg else 0, 1)
 
-    # Ministries covered
     ministries = set()
-    for s in stories:
+    for s in filtered:
         for m in (s.get("oma") or []):
             if m and m != "Unmapped":
                 ministries.add(m)
 
     return {
         "days": days,
-        "total": len(stories),
+        "total": len(filtered),
         "positive": pos,
         "neutral": neu,
         "negative": neg,
@@ -144,7 +193,7 @@ def analytics_trend(days: int = 7, user: dict = Depends(get_current_user)):
         ministry = user.get("ministry")
         stories = [s for s in stories if ministry in (s.get("oma") or [])]
 
-    # Real data grouped by date
+    # Group real stories by their scraped date
     by_day = {}
     for s in stories:
         ts = s.get("scraped_at") or s.get("created_at") or ""
@@ -156,35 +205,53 @@ def analytics_trend(days: int = 7, user: dict = Depends(get_current_user)):
         sentiment = s.get("sentiment") or "Neutral"
         by_day[day][sentiment] = by_day[day].get(sentiment, 0) + 1
 
-    # Build the day-by-day series
     today = datetime.now().date()
-    span = min(days if days < 9999 else 30, 30)  # Cap at 30 days
+    today_str = today.isoformat()
+
+    # If today has no data, use the most recent date that does
+    if today_str not in by_day and by_day:
+        most_recent = max(by_day.keys())
+        reference_date = datetime.fromisoformat(most_recent).date()
+    else:
+        reference_date = today
+
     result = []
-    for i in range(span - 1, -1, -1):
-        day = today - timedelta(days=i)
-        day_str = day.isoformat()
 
-        if i == 0:
-            # Today — real data
-            entry = by_day.get(day_str, {"Positive": 0, "Neutral": 0, "Negative": 0})
-        elif day_str in by_day:
-            # Real data exists for that day
-            entry = by_day[day_str]
-        else:
-            # Seed demo data
-            seed = _seed_for_day(day)
-            entry = {
-                "Positive": 8 + seed,
-                "Neutral": 3 + (seed // 3),
-                "Negative": 2 + (seed // 4),
-            }
-
+    if days == 1:
+        # Today (or the latest day with data) — single point
+        ref_str = reference_date.isoformat()
+        entry = by_day.get(ref_str, {"Positive": 0, "Neutral": 0, "Negative": 0})
         result.append({
-            "date": day_str,
+            "date": ref_str,
             "Positive": entry.get("Positive", 0),
             "Neutral": entry.get("Neutral", 0),
             "Negative": entry.get("Negative", 0),
         })
+    else:
+        span = min(days if days < 9999 else 30, 30)
+        for i in range(span - 1, -1, -1):
+            day = reference_date - timedelta(days=i)
+            day_str = day.isoformat()
+
+            if day_str in by_day:
+                entry = by_day[day_str]
+            elif i == 0:
+                # The reference day (today or latest day with data)
+                entry = by_day.get(day_str, {"Positive": 0, "Neutral": 0, "Negative": 0})
+            else:
+                seed = (day.day * 7) % 15
+                entry = {
+                    "Positive": 8 + seed,
+                    "Neutral": 3 + (seed // 3),
+                    "Negative": 2 + (seed // 4),
+                }
+
+            result.append({
+                "date": day_str,
+                "Positive": entry.get("Positive", 0),
+                "Neutral": entry.get("Neutral", 0),
+                "Negative": entry.get("Negative", 0),
+            })
 
     return {"trend": result}
 

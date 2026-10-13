@@ -11,6 +11,8 @@ from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if PROJECT_ROOT not in sys.path:
@@ -73,10 +75,45 @@ def summary(user: dict = Depends(get_current_user)):
 # STORIES (for the ministry view)
 # ------------------------------------------------------------
 @router.get("/stories")
-def stories(user: dict = Depends(get_current_user)):
-    """Return all stories for the ministry."""
+def stories(
+    date: Optional[str] = Query(None, description="'today' to filter to today's stories"),
+    user: dict = Depends(get_current_user),
+):
+    """
+    Return stories for the ministry.
+    If date='today', filter to today's stories only
+    (falls back to the most recent day if today is empty).
+    """
     ministry = _require_ministry(user)
     all_stories = db.get_stories(ministry=ministry)
+
+    # Optional date filter
+    if date == "today":
+        from datetime import datetime as _dt
+        today = _dt.now().date().isoformat()
+        today_stories = [
+            s for s in all_stories
+            if (s.get("scraped_at") or "")[:10] == today
+        ]
+
+        if not today_stories and all_stories:
+            # Fallback: use the most recent day with data
+            dates = sorted(
+                set(
+                    (s.get("scraped_at") or "")[:10]
+                    for s in all_stories
+                    if s.get("scraped_at")
+                ),
+                reverse=True,
+            )
+            if dates:
+                most_recent = dates[0]
+                today_stories = [
+                    s for s in all_stories
+                    if (s.get("scraped_at") or "")[:10] == most_recent
+                ]
+
+        all_stories = today_stories
 
     # Sort: negative first
     order = {"Negative": 0, "Neutral": 1, "Positive": 2}
@@ -199,17 +236,49 @@ def trend(user: dict = Depends(get_current_user)):
 # ALERTS (negative coverage that needs attention)
 # ------------------------------------------------------------
 @router.get("/alerts")
-def alerts(user: dict = Depends(get_current_user)):
-    """Return alerts — negative stories without an approval yet."""
+def alerts(
+    date: Optional[str] = Query(None, description="'today' to filter to today's alerts"),
+    user: dict = Depends(get_current_user),
+):
+    """
+    Return alerts — negative stories without an approval yet.
+    If date='today', filter to today's stories only.
+    """
     ministry = _require_ministry(user)
 
     stories = db.get_stories(ministry=ministry, sentiment="Negative")
-    approvals = {a["headline"] for a in db.get_all_approvals()}
 
+    # Optional date filter
+    if date == "today":
+        from datetime import datetime as _dt
+        today = _dt.now().date().isoformat()
+        today_stories = [
+            s for s in stories
+            if (s.get("scraped_at") or "")[:10] == today
+        ]
+
+        if not today_stories and stories:
+            dates = sorted(
+                set(
+                    (s.get("scraped_at") or "")[:10]
+                    for s in stories
+                    if s.get("scraped_at")
+                ),
+                reverse=True,
+            )
+            if dates:
+                most_recent = dates[0]
+                today_stories = [
+                    s for s in stories
+                    if (s.get("scraped_at") or "")[:10] == most_recent
+                ]
+
+        stories = today_stories
+
+    approvals = {a["headline"] for a in db.get_all_approvals()}
     alert_stories = [s for s in stories if s["headline"] not in approvals]
 
     return {"count": len(alert_stories), "alerts": alert_stories}
-
 
 # ------------------------------------------------------------
 # NOTIFY MICT

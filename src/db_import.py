@@ -1,7 +1,7 @@
 """
 GovPulse — Import JSON to DB
-Reads the current JSON files (which the pipeline produces) and
-syncs them into the SQLite database.
+Syncs the current pipeline output (mapped.json, responses.json, approvals.json)
+into the SQLite database. Removes stories no longer present in the source JSON.
 """
 
 import json
@@ -31,10 +31,33 @@ def _load_json(path, default=None):
         return default if default is not None else []
 
 
-def import_stories():
+def import_stories(replace=True):
+    """
+    Sync mapped.json into the DB.
+    If replace=True, delete any stories in the DB that are not in the JSON.
+    """
     stories = _load_json(MAPPED_JSON, [])
+    if not stories:
+        print("[DB-IMPORT] mapped.json is empty — skipping to avoid wiping the DB")
+        return 0
+
+    headlines_in_json = {s.get("headline") for s in stories if s.get("headline")}
+
+    # Upsert everything from JSON
     for s in stories:
         db.upsert_story(s)
+
+    # Remove DB stories that no longer exist in the JSON
+    if replace:
+        db_stories = db.get_stories()
+        removed = 0
+        for ds in db_stories:
+            if ds.get("headline") not in headlines_in_json:
+                db.delete_story(ds["headline"])
+                removed += 1
+        if removed:
+            print(f"[DB-IMPORT] Removed {removed} stale stories")
+
     return len(stories)
 
 
@@ -59,17 +82,30 @@ def import_responses():
 
 
 def import_approvals():
+    """Approvals live in the DB. Only import from JSON if DB is empty."""
+    existing = db.get_all_approvals()
+    if existing:
+        return 0
     approvals = _load_json(APPROVALS_JSON, {})
-    # Approvals come from DB already; don't re-import unless JSON has newer
-    # For now, skip
-    return 0
+    count = 0
+    for headline, a in approvals.items():
+        db.create_approval(
+            headline=headline,
+            ministry=a.get("ministry", ""),
+            final_text=a.get("final_text", ""),
+            approved_by=a.get("approved_by", "system"),
+        )
+        count += 1
+    return count
 
 
 def import_from_json():
     """Sync everything from JSON to DB."""
-    n_s = import_stories()
+    n_s = import_stories(replace=True)
     n_r = import_responses()
-    print(f"[DB-IMPORT] Stories: {n_s}, Responses: {n_r}")
+    n_a = import_approvals()
+    total = len(db.get_stories())
+    print(f"[DB-IMPORT] Stories: {n_s} (DB total: {total}), Responses: {n_r}, Approvals: {n_a}")
 
 
 if __name__ == "__main__":

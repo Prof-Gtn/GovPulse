@@ -5,60 +5,88 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In — GovPulse</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: '#0B2265',
+                        gold: '#FFCE00',
+                        electric: '#0066CC',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-        .gradient-bg {
-            background: linear-gradient(135deg, #0F2540 0%, #1A3556 60%, #0D3A6E 100%);
+        body { font-family: 'Inter', sans-serif; }
+        .eyebrow-line { width: 32px; height: 2px; background-color: #FFCE00; display: inline-block; }
+        .hero-bg {
+            background-color: #0B2265;
+            background-image: radial-gradient(circle at 100% 0%, rgba(255, 206, 0, 0.12) 0%, transparent 50%),
+                              radial-gradient(circle at 0% 100%, rgba(0, 102, 204, 0.25) 0%, transparent 50%);
         }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col">
+<body class="hero-bg min-h-screen flex flex-col">
 
-    <!-- NAV -->
-    <nav class="gradient-bg text-white">
-        <div class="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
-            <a href="index.html" class="flex items-center gap-2">
-                <span class="text-2xl">🛡️</span>
-                <span class="text-xl font-bold tracking-tight">GovPulse</span>
-            </a>
-        </div>
-    </nav>
+    <!-- TOP HEADER: BRAND ONLY -->
+    <header class="w-full px-6 pt-10 pb-6 flex items-center justify-center">
+        <a href="index.html" class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+            MICT | GovPulse
+        </a>
+    </header>
 
-    <!-- LOGIN CARD -->
-    <main class="flex-1 flex items-center justify-center px-6 py-12">
+    <!-- MAIN: LOGIN FORM -->
+    <main class="flex-1 flex items-center justify-center px-6 pb-16">
         <div class="w-full max-w-md">
 
+            <!-- Eyebrow + Title -->
             <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold text-slate-900 mb-2">Welcome back</h1>
-                <p class="text-slate-600">Sign in to access GovPulse</p>
+                <div class="flex items-center justify-center gap-3 mb-5">
+                    <span class="eyebrow-line"></span>
+                    <span class="text-gold text-xs font-bold tracking-widest uppercase">GOVERNMENT MEDIA MONITORING SYSTEM</span>
+                    <span class="eyebrow-line"></span>
+                </div>
+                <h1 class="text-3xl sm:text-4xl font-extrabold text-white mb-3 tracking-tight">
+                    Welcome back
+                </h1>
+                <p class="text-slate-300 text-sm sm:text-base">
+                    Sign in to access the Government Media Monitoring System.
+                </p>
             </div>
 
-            <div class="bg-white rounded-2xl shadow-lg p-8">
+            <!-- Login Card -->
+            <div class="bg-white rounded-xl shadow-2xl border border-white/10 p-8 sm:p-10">
 
-                <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-6">
+                <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-md px-4 py-3 mb-6">
                 </div>
 
                 <form id="login-form">
                     <div class="mb-5">
-                        <label for="username" class="block text-sm font-medium text-slate-700 mb-2">
+                        <label for="username" class="block text-sm font-semibold text-slate-700 mb-2">
                             Username
                         </label>
                         <input type="text" id="username" name="username" required
-                               class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                               class="w-full px-4 py-3 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-electric focus:border-transparent transition bg-slate-50 focus:bg-white"
                                placeholder="Enter your username">
                     </div>
 
                     <div class="mb-6">
-                        <label for="password" class="block text-sm font-medium text-slate-700 mb-2">
+                        <label for="password" class="block text-sm font-semibold text-slate-700 mb-2">
                             Password
                         </label>
                         <input type="password" id="password" name="password" required
-                               class="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                               class="w-full px-4 py-3 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-electric focus:border-transparent transition bg-slate-50 focus:bg-white"
                                placeholder="Enter your password">
                     </div>
 
                     <button type="submit" id="login-btn"
-                            class="w-full gradient-bg text-white font-semibold py-3 rounded-lg hover:opacity-95 transition shadow-lg flex items-center justify-center gap-2">
+                            class="w-full bg-electric text-white font-bold py-3.5 rounded-md hover:bg-blue-700 transition shadow-md flex items-center justify-center gap-2">
                         <span id="btn-text">Sign In</span>
                         <span id="btn-spinner" class="hidden">
                             <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
@@ -69,16 +97,11 @@
                     </button>
                 </form>
 
-                <div class="mt-6 pt-6 border-t border-slate-100">
-                    <div class="text-xs text-slate-500 text-center">
-                        Demo credentials: <b>lucia</b> / <b>changeme123</b>
-                    </div>
-                </div>
-
             </div>
 
-            <div class="mt-6 text-center text-xs text-slate-500">
-                © 2026 GovPulse. Government Media Intelligence Platform.
+            <!-- Footer note -->
+            <div class="mt-8 text-center text-xs text-slate-400">
+                © 2026 GovPulse · Ministry of Information and Communication Technology | All rights reserved.
             </div>
 
         </div>
@@ -86,7 +109,6 @@
 
     <script src="js/api.js"></script>
     <script>
-        // If already logged in, redirect to dashboard
         if (isLoggedIn()) {
             window.location.href = "dashboard.html";
         }
@@ -109,7 +131,6 @@
 
             try {
                 const data = await login(username, password);
-                // Route based on role
                 if (data.role === "ministry") {
                     window.location.href = "ministry.html";
                 } else {

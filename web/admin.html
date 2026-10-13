@@ -6,27 +6,23 @@
     <title>User Management — GovPulse</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="css/dashboard.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 
 <!-- TOP NAV -->
 <header class="topnav">
     <div class="topnav-inner">
-        <div class="brand">
-            <a href="dashboard.html" class="brand-mark" style="text-decoration:none;">
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                    <path d="M1 12h5l3-9 4 16 3-7h5" stroke="#0F2540" stroke-width="2.2" stroke-linejoin="miter"/>
-                </svg>
-            </a>
-            <div class="brand-text">
-                <div class="brand-name">GovPulse</div>
-                <div class="brand-sub">Administration · MICT</div>
-            </div>
-        </div>
+        <a href="dashboard.html" class="brand">
+            <img src="assets/coat_of_arms.png" alt="Coat of Arms" class="brand-coat">
+            <div class="brand-divider"></div>
+            <img src="assets/govpulse_logo.png" alt="GovPulse" class="brand-logo" onerror="this.style.display='none'">
+            <span class="brand-text">GovPulse</span>
+        </a>
 
         <div class="user-menu">
             <div class="user-info">
-                <div class="user-label">Admin</div>
+                <div class="user-label">Signed in as</div>
                 <div class="user-name" id="userName">…</div>
             </div>
             <div class="user-avatar" id="userAvatar">–</div>
@@ -37,56 +33,67 @@
 
 <main class="main">
 
-    <!-- PAGE HEADER -->
-    <div class="page-header">
-        <div>
-            <h1>User Management</h1>
-            <div class="sub">Create accounts, assign roles, control access</div>
+    <!-- PAGE BANNER -->
+    <div class="page-banner">
+        <div class="page-banner-inner">
+            <div>
+                <div class="banner-eyebrow">
+                    <span class="eyebrow-line"></span>
+                    <span class="eyebrow-text">Administration</span>
+                </div>
+                <h1 class="banner-title">User Management</h1>
+                <div class="banner-sub">Create accounts, assign roles, control access</div>
+            </div>
+            <div class="banner-actions">
+                <button class="btn btn-white-outline" onclick="window.location.href='dashboard.html'">
+                    ← Dashboard
+                </button>
+                <button class="btn btn-white" id="btnNewUser">
+                    + New User
+                </button>
+            </div>
         </div>
-        <div class="actions">
-            <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'">
-                ← Back to Dashboard
-            </button>
-            <button class="btn btn-primary" id="btnNewUser">
-                + New User
-            </button>
-        </div>
-    </div>
 
-    <!-- SYSTEM STATS -->
-    <div class="stats-grid" style="grid-template-columns:repeat(5,1fr); margin-bottom:20px;">
-        <div class="stat-card total">
-            <div class="stat-label">Total Users</div>
-            <div class="stat-value" id="statUsers" style="font-size:26px;">–</div>
-            <div class="stat-sub" id="statUsersSub">&nbsp;</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Admins</div>
-            <div class="stat-value" id="statAdmins" style="font-size:26px;">–</div>
-            <div class="stat-sub">full access</div>
-        </div>
-        <div class="stat-card neutral">
-            <div class="stat-label">Ministry Officers</div>
-            <div class="stat-value" id="statMinistry" style="font-size:26px;">–</div>
-            <div class="stat-sub">scoped access</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Total Stories</div>
-            <div class="stat-value" id="statStories" style="font-size:26px;">–</div>
-            <div class="stat-sub">in database</div>
-        </div>
-        <div class="stat-card positive">
-            <div class="stat-label">Audit Events</div>
-            <div class="stat-value" id="statAudit" style="font-size:26px;">–</div>
-            <div class="stat-sub">logged actions</div>
+        <div class="stat-grid-glass" style="grid-template-columns:repeat(5,1fr);">
+            <div class="stat-glass total">
+                <div class="stat-glass-label">Total Users</div>
+                <div class="stat-glass-value" id="statUsers">–</div>
+                <div class="stat-glass-sub" id="statUsersSub">&nbsp;</div>
+            </div>
+            <div class="stat-glass total">
+                <div class="stat-glass-label">Admins</div>
+                <div class="stat-glass-value" id="statAdmins">–</div>
+                <div class="stat-glass-sub">full access</div>
+            </div>
+            <div class="stat-glass neutral">
+                <div class="stat-glass-label">Ministry Officers</div>
+                <div class="stat-glass-value" id="statMinistry">–</div>
+                <div class="stat-glass-sub">scoped access</div>
+            </div>
+            <div class="stat-glass total">
+                <div class="stat-glass-label">Total Stories</div>
+                <div class="stat-glass-value" id="statStories">–</div>
+                <div class="stat-glass-sub">in database</div>
+            </div>
+            <div class="stat-glass positive">
+                <div class="stat-glass-label">Audit Events</div>
+                <div class="stat-glass-value" id="statAudit">–</div>
+                <div class="stat-glass-sub">logged actions</div>
+            </div>
         </div>
     </div>
 
     <!-- USERS PANEL -->
     <div class="panel">
         <div class="panel-header">
-            <h2>All Users</h2>
-            <span class="note" id="usersCount"></span>
+            <div class="eyebrow">
+                <span class="eyebrow-line"></span>
+                <span class="eyebrow-text">Directory</span>
+            </div>
+            <div class="panel-header-row">
+                <h2>All Users</h2>
+                <span class="note" id="usersCount"></span>
+            </div>
         </div>
 
         <div class="filters">
@@ -101,6 +108,7 @@
             <table class="stack">
                 <thead>
                     <tr>
+                        <th style="width:44px">#</th>
                         <th style="width:170px">Username</th>
                         <th style="width:200px">Name</th>
                         <th style="width:120px">Role</th>
@@ -110,7 +118,7 @@
                     </tr>
                 </thead>
                 <tbody id="usersBody">
-                    <tr><td colspan="6" class="empty">Loading users…</td></tr>
+                    <tr><td colspan="7" class="empty">Loading users…</td></tr>
                 </tbody>
             </table>
         </div>
@@ -121,7 +129,6 @@
 <!-- CREATE / EDIT USER MODAL -->
 <div class="modal-overlay" id="userModal">
     <div class="modal" role="dialog" aria-modal="true" style="max-width:560px;">
-
         <div class="modal-header">
             <div class="label" id="modalLabel">User Management</div>
             <h3 id="modalTitle">Create New User</h3>
@@ -129,7 +136,6 @@
         </div>
 
         <div class="modal-body">
-
             <div class="modal-section">
                 <div class="modal-section-label">Username</div>
                 <input type="text" class="modal-textarea" id="fUsername"
@@ -180,21 +186,19 @@
                     Minimum 8 characters. The user can change it after first login.
                 </div>
             </div>
-
         </div>
 
         <div class="modal-footer">
             <button class="btn btn-ghost" id="modalCancel">Cancel</button>
             <button class="btn btn-primary" id="modalSave">Create User</button>
         </div>
-
     </div>
 </div>
 
 <!-- DELETE CONFIRMATION MODAL -->
 <div class="modal-overlay" id="deleteModal">
     <div class="modal" role="dialog" style="max-width:480px;">
-        <div class="modal-header" style="background:var(--negative);">
+        <div class="modal-header" style="background:linear-gradient(135deg, #7F1D1D 0%, #B91C1C 100%);">
             <div class="label" style="color:#FEE2E2;">Confirm Deletion</div>
             <h3 id="deleteTitle">Delete User</h3>
         </div>
@@ -221,9 +225,6 @@
 (function () {
     "use strict";
 
-    // ---------------------------------------------------------
-    // AUTH GUARD — admins only
-    // ---------------------------------------------------------
     if (!requireLogin()) return;
 
     const user = getUser() || {};
@@ -233,9 +234,6 @@
         return;
     }
 
-    // ---------------------------------------------------------
-    // HELPERS
-    // ---------------------------------------------------------
     const $ = (s) => document.querySelector(s);
     const $$ = (s) => [...document.querySelectorAll(s)];
 
@@ -264,31 +262,23 @@
     };
 
     const ROLE_LABELS = {
-        admin:     { label: "Admin",     color: "#0F2540" },
+        admin:     { label: "Admin",     color: "#0B2265" },
         analyst:   { label: "Analyst",   color: "#2563EB" },
         ministry:  { label: "Ministry",  color: "#7C3AED" },
         oversight: { label: "Oversight", color: "#0891B2" },
     };
 
-    // ---------------------------------------------------------
-    // STATE
-    // ---------------------------------------------------------
     let users = [];
     let roleFilter = "all";
-    let editingUsername = null;   // null = create, else edit
+    let editingUsername = null;
     let deleteTarget = null;
 
-    // ---------------------------------------------------------
     // INIT
-    // ---------------------------------------------------------
     $("#userName").textContent = user.name || user.username || "Admin";
     $("#userAvatar").textContent = (user.name || user.username || "A")
         .split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
     $("#btnLogout").onclick = logout;
 
-    // ---------------------------------------------------------
-    // LOAD DATA
-    // ---------------------------------------------------------
     async function loadAll() {
         try {
             const [uRes, sRes] = await Promise.all([
@@ -298,7 +288,6 @@
 
             users = uRes.users || [];
 
-            // Stats
             $("#statUsers").textContent = sRes.users || users.length;
             $("#statAdmins").textContent = (sRes.roles && sRes.roles.admin) || 0;
             $("#statMinistry").textContent = (sRes.roles && sRes.roles.ministry) || 0;
@@ -312,14 +301,10 @@
         }
     }
 
-    // ---------------------------------------------------------
-    // RENDER USERS
-    // ---------------------------------------------------------
     function renderUsers() {
         const tbody = $("#usersBody");
         const search = ($("#userSearch").value || "").toLowerCase();
 
-        // Chip counts
         const counts = { all: users.length };
         for (const u of users) {
             counts[u.role] = (counts[u.role] || 0) + 1;
@@ -347,7 +332,6 @@
             };
         });
 
-        // Filter
         let filtered = users;
         if (roleFilter !== "all") {
             filtered = filtered.filter((u) => u.role === roleFilter);
@@ -364,21 +348,22 @@
             `${filtered.length} of ${users.length} users`;
 
         if (!filtered.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty">No users match.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty">No users match.</td></tr>';
             return;
         }
 
-        tbody.innerHTML = filtered.map((u) => {
+        tbody.innerHTML = filtered.map((u, i) => {
             const meta = ROLE_LABELS[u.role] || { label: u.role, color: "#64748B" };
             const isMe = u.username === user.username;
 
             return `
-                <tr>
-                    <td data-label="Username" class="mono" style="font-weight:500; color:var(--ink);">
+                <tr class="row-neutral">
+                    <td class="row-num">${String(i + 1).padStart(2, "0")}</td>
+                    <td data-label="Username" class="mono" style="font-weight:600; color:var(--ink); font-family:var(--mono); font-size:12.5px;">
                         ${escapeHtml(u.username)}
-                        ${isMe ? '<span style="font-size:10px; color:var(--mute); margin-left:6px;">(you)</span>' : ''}
+                        ${isMe ? '<span style="font-size:10px; color:var(--mute); margin-left:6px; font-family:var(--sans);">(you)</span>' : ''}
                     </td>
-                    <td data-label="Name" style="color:var(--ink-2);">
+                    <td data-label="Name" style="color:var(--ink-2); font-weight:500;">
                         ${escapeHtml(u.name || "—")}
                     </td>
                     <td data-label="Role">
@@ -395,7 +380,7 @@
                     <td data-label="Ministry" style="font-size:12.5px; color:var(--ink-2);">
                         ${escapeHtml(u.ministry || "—")}
                     </td>
-                    <td data-label="Last Login" class="mono" style="font-size:12px; color:var(--mute);">
+                    <td data-label="Last Login" class="mono" style="font-size:12px; color:var(--mute); font-family:var(--mono);">
                         ${fmtDate(u.last_login)}
                     </td>
                     <td data-label="Action">
@@ -413,7 +398,6 @@
             `;
         }).join("");
 
-        // Wire buttons
         $$("#usersBody button[data-edit]").forEach((b) => {
             b.onclick = () => openEditModal(b.dataset.edit);
         });
@@ -424,9 +408,7 @@
 
     $("#userSearch").oninput = renderUsers;
 
-    // ---------------------------------------------------------
-    // CREATE / EDIT USER
-    // ---------------------------------------------------------
+    // CREATE / EDIT
     $("#btnNewUser").onclick = () => openCreateModal();
 
     function openCreateModal() {
@@ -501,7 +483,6 @@
         const ministry = $("#fMinistry").value.trim();
         const password = $("#fPassword").value;
 
-        // Validation
         if (!username) { showToast("Username is required."); return; }
         if (!name) { showToast("Full name is required."); return; }
         if (!email) { showToast("Email is required."); return; }
@@ -522,7 +503,6 @@
         try {
             let r;
             if (editingUsername) {
-                // Update
                 const body = { name, email, role, ministry };
                 if (password) body.password = password;
 
@@ -531,7 +511,6 @@
                     body: JSON.stringify(body),
                 });
             } else {
-                // Create
                 r = await apiFetch("/admin/users", {
                     method: "POST",
                     body: JSON.stringify({
@@ -556,9 +535,7 @@
         btn.textContent = original;
     });
 
-    // ---------------------------------------------------------
-    // DELETE USER
-    // ---------------------------------------------------------
+    // DELETE
     function openDeleteModal(username) {
         const u = users.find((x) => x.username === username);
         if (!u) return;
@@ -608,9 +585,6 @@
         btn.textContent = original;
     });
 
-    // ---------------------------------------------------------
-    // START
-    // ---------------------------------------------------------
     loadAll();
 
 })();

@@ -1,6 +1,7 @@
 """
 GovPulse — Daily Brief Generator
 Generates the MICT daily brief in Excel and PDF format.
+Only includes stories scraped on the brief's date.
 """
 
 import json
@@ -42,22 +43,64 @@ SENTIMENT_TEXT_COLORS = {
 def load_stories(input_file="data/processed/mapped.json",
                  approvals_file="data/processed/approvals.json",
                  exclude_unmapped=True):
-    """Load mapped stories and enrich each with its approved response (if any).
+    """
+    Load mapped stories, filter to today's scrape date only, and enrich
+    each with its approved response.
 
-    By default, unmapped stories are excluded — the brief only covers
-    stories that touch a government institution, matching MICT's format.
+    Filtering logic:
+      1. Keep only stories whose scraped_at date == today.
+      2. If today has no stories (scraper not yet run), fall back to the
+         most recent date with data — the brief is never empty.
+      3. Optionally exclude unmapped stories.
+      4. Approvals only appear if they were made on or after the brief date.
     """
     with open(input_file, "r", encoding="utf-8-sig") as f:
-        stories = json.load(f)
+        all_stories = json.load(f)
+
+    # Determine the brief date and filter stories
+    today = datetime.now().date().isoformat()
+
+    stories_today = [
+        s for s in all_stories
+        if (s.get("scraped_at") or "")[:10] == today
+    ]
+
+    if stories_today:
+        brief_date = today
+    else:
+        # Fallback: use the most recent date that has stories
+        dates = sorted(
+            set(
+                (s.get("scraped_at") or "")[:10]
+                for s in all_stories
+                if s.get("scraped_at")
+            ),
+            reverse=True,
+        )
+        if dates:
+            brief_date = dates[0]
+            stories_today = [
+                s for s in all_stories
+                if (s.get("scraped_at") or "")[:10] == brief_date
+            ]
+            print(f"[WARN] No stories scraped today ({today}). "
+                  f"Falling back to {brief_date}")
+        else:
+            brief_date = today
+            stories_today = all_stories
+
+    print(f"Brief date: {brief_date} — {len(stories_today)} stories "
+          f"(out of {len(all_stories)} total)")
 
     # Exclude unmapped stories from the brief
     if exclude_unmapped:
-        stories = [
-            s for s in stories
+        stories_today = [
+            s for s in stories_today
             if s.get("oma") and s["oma"] != ["Unmapped"]
         ]
+        print(f"After excluding unmapped: {len(stories_today)} stories")
 
-    # Load approvals (silently skip if missing)
+    # Load approvals
     approvals = {}
     if os.path.exists(approvals_file):
         try:
@@ -66,19 +109,26 @@ def load_stories(input_file="data/processed/mapped.json",
         except Exception as e:
             print(f"[WARN] Could not load approvals: {e}")
 
-    # Attach a short approval marker to matching stories
-    for story in stories:
+    # Attach approval markers ONLY to stories in today's brief,
+    # and ONLY if the approval was made on/after the brief date.
+    for story in stories_today:
         headline = story.get("headline", "")
         if headline in approvals:
             approval = approvals[headline]
-            approved_at = approval.get("approved_at", "")[:10]
+            approved_at = (approval.get("approved_at") or "")[:10]
             ministry = approval.get("ministry", "")
             final_text = approval.get("final_text", "")
-            story["comment"] = f"✓ {approved_at} — {ministry}:\n\"{final_text}\""
+
+            if approved_at and approved_at >= brief_date:
+                story["comment"] = (
+                    f"✓ {approved_at} — {ministry}:\n\"{final_text}\""
+                )
+            else:
+                story["comment"] = "None"
         else:
             story["comment"] = story.get("comment", "None") or "None"
 
-    return stories
+    return stories_today, brief_date
 
 
 def format_oma(oma_list):
@@ -90,7 +140,7 @@ def format_oma(oma_list):
 # ------------------------------------------------------------------
 # EXCEL
 # ------------------------------------------------------------------
-def build_workbook(stories):
+def build_workbook(stories, brief_date):
     wb = Workbook()
     ws = wb.active
     ws.title = "Daily Brief"
@@ -106,7 +156,8 @@ def build_workbook(stories):
 
     ws.merge_cells("A2:H2")
     date_cell = ws["A2"]
-    date_cell.value = f"DATE: {datetime.now().strftime('%A, %d %B %Y').upper()}"
+    formatted_date = datetime.fromisoformat(brief_date).strftime("%A, %d %B %Y").upper()
+    date_cell.value = f"DATE: {formatted_date}"
     date_cell.font = Font(bold=True, size=11)
     date_cell.alignment = Alignment(horizontal="center")
     ws.row_dimensions[2].height = 20
@@ -162,14 +213,12 @@ def build_workbook(stories):
                 cell.fill = PatternFill("solid", fgColor=bg_color)
                 cell.font = Font(bold=True, color=text_color)
 
-        # Auto row height for summary
         summary_text = str(story.get("ai_summary", "") or "")
         estimated_lines = max(2, len(summary_text) // 55)
         ws.row_dimensions[row].height = 15 * estimated_lines
 
         row += 1
 
-    # Column widths
     widths = {
         "A": 14, "B": 8, "C": 32, "D": 60,
         "E": 28, "F": 11, "G": 32, "H": 22,
@@ -215,10 +264,10 @@ def build_workbook(stories):
 def generate_report(input_file="data/processed/mapped.json",
                     output_file="data/processed/daily_brief.xlsx"):
     print(f"Loading stories from {input_file}...")
-    stories = load_stories(input_file)
+    stories, brief_date = load_stories(input_file)
     print(f"Generating daily brief for {len(stories)} stories...")
 
-    wb = build_workbook(stories)
+    wb = build_workbook(stories, brief_date)
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     wb.save(output_file)
 
@@ -244,7 +293,7 @@ def generate_pdf(input_file="data/processed/mapped.json",
                  output_file="data/processed/daily_brief.pdf"):
     """Generate the daily brief as a PDF."""
     print(f"Loading stories from {input_file}...")
-    stories = load_stories(input_file)
+    stories, brief_date = load_stories(input_file)
     print(f"Generating PDF brief for {len(stories)} stories...")
 
     doc = SimpleDocTemplate(
@@ -298,7 +347,8 @@ def generate_pdf(input_file="data/processed/mapped.json",
     ]))
     elements.append(title_table)
 
-    date_text = f"DATE: {datetime.now().strftime('%A, %d %B %Y').upper()}"
+    formatted_date = datetime.fromisoformat(brief_date).strftime("%A, %d %B %Y").upper()
+    date_text = f"DATE: {formatted_date}"
     elements.append(Paragraph(date_text, date_style))
     elements.append(Spacer(1, 0.3 * cm))
 
