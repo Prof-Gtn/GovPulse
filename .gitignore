@@ -23,3 +23,12 @@ app/config.yaml
 data/govpulse.db
 data/govpulse.db-wal
 data/govpulse.db-shm
+data/govpulse.db
+
+data/govpulse.db-wal
+
+data/govpulse.db-shm
+
+data/processed/daily_brief.pdf
+
+data/processed/daily_brief.xlsx
