@@ -4,9 +4,48 @@ set -e
 echo "[START] Working directory: $(pwd)"
 echo "[START] Python version: $(python --version)"
 
+# ============================================================
+# Redirect /app/data to the Railway volume (if one is mounted)
+# ============================================================
+# Every pipeline script writes to paths like `data/processed/mapped.json`
+# relative to the project root. Without this symlink, those paths resolve
+# to the container's ephemeral filesystem, and any file written by one
+# script is invisible to the next script that runs as a separate process.
+if [ -n "$RAILWAY_VOLUME_MOUNT_PATH" ]; then
+    echo "[START] Volume detected at $RAILWAY_VOLUME_MOUNT_PATH"
+
+    # Create the full data folder structure on the volume
+    mkdir -p "$RAILWAY_VOLUME_MOUNT_PATH/data/processed"
+    mkdir -p "$RAILWAY_VOLUME_MOUNT_PATH/data/raw"
+    mkdir -p "$RAILWAY_VOLUME_MOUNT_PATH/data/processed/briefs"
+
+    # If /app/data exists and isn't a symlink yet, migrate its contents
+    # to the volume then remove it so we can replace it with a symlink.
+    if [ -d "/app/data" ] && [ ! -L "/app/data" ]; then
+        echo "[START] Migrating existing /app/data -> volume"
+        cp -rn /app/data/. "$RAILWAY_VOLUME_MOUNT_PATH/data/" 2>/dev/null || true
+        rm -rf /app/data
+    fi
+
+    # Create the symlink so /app/data points at the volume
+    if [ ! -e "/app/data" ]; then
+        ln -s "$RAILWAY_VOLUME_MOUNT_PATH/data" /app/data
+    fi
+
+    echo "[START] /app/data -> $(readlink /app/data)"
+else
+    echo "[START] No volume detected — using container-local /app/data"
+fi
+
+# ============================================================
+# Initialize the database schema
+# ============================================================
 echo "[START] Initializing database schema..."
 python -c "from src.db import init_db; init_db()"
 
+# ============================================================
+# Seed demo users if they don't exist
+# ============================================================
 echo "[START] Ensuring demo users exist..."
 python - <<'PY'
 import os
@@ -48,5 +87,8 @@ print(f"[START] Users created this boot: {created}")
 print(f"[START] Total users now: {len(db.get_all_users())}")
 PY
 
+# ============================================================
+# Launch the API
+# ============================================================
 echo "[START] Launching uvicorn on port $PORT..."
 exec uvicorn api.main:app --host 0.0.0.0 --port "${PORT:-8000}"
