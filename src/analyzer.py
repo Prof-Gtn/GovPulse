@@ -222,11 +222,40 @@ def analyze_all(input_file="data/raw/stories.json",
         print(f"[WARN] Could not check DB: {e}")
         existing_db = set()
 
-    new_stories = [
-        s for s in stories
-        if s["headline"] not in existing_db
-        and s["headline"] not in old_by_headline
-    ]
+        def _has_summary(story):
+        s = story.get("ai_summary")
+        return bool(s and str(s).strip())
+
+    # Only skip stories that already have a summary — either in the incoming
+    # batch, in previously analyzed output, or in the DB.
+    new_stories = []
+    for s in stories:
+        h = s.get("headline")
+        if not h:
+            continue
+
+        # If the story lacks a summary in the batch it came in with,
+        # we must analyze it.
+        if not _has_summary(s):
+            new_stories.append(s)
+            continue
+
+        # If old_analyzed has a summary for this headline, keep it.
+        old = old_by_headline.get(h)
+        if old and _has_summary(old):
+            continue
+
+        # If the DB has a summary, keep it.
+        if h in existing_db:
+            try:
+                db_story = db.get_story(h)
+                if db_story and _has_summary(db_story):
+                    continue
+            except Exception:
+                pass
+
+        # Otherwise, this story needs (re-)analysis.
+        new_stories.append(s)
 
     print(f"New stories requiring analysis: {len(new_stories)}")
 
