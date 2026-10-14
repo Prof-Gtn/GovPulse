@@ -10,7 +10,17 @@ from contextlib import contextmanager
 
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(PROJECT_ROOT, "data", "govpulse.db")
+
+# Railway (and similar platforms) attach a persistent volume at runtime and
+# expose its mount path via RAILWAY_VOLUME_MOUNT_PATH. Use it when present so
+# the SQLite file survives redeploys; otherwise fall back to the local path.
+_RAILWAY_VOLUME = os.getenv("RAILWAY_VOLUME_MOUNT_PATH", "").strip()
+
+if _RAILWAY_VOLUME:
+    DB_PATH = os.path.join(_RAILWAY_VOLUME, "govpulse.db")
+else:
+    DB_PATH = os.path.join(PROJECT_ROOT, "data", "govpulse.db")
+
 SCHEMA_PATH = os.path.join(PROJECT_ROOT, "src", "schema.sql")
 
 
