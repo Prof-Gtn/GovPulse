@@ -222,7 +222,7 @@ def analyze_all(input_file="data/raw/stories.json",
         print(f"[WARN] Could not check DB: {e}")
         existing_db = set()
 
-        def _has_summary(story):
+    def _has_summary(story):
         s = story.get("ai_summary")
         return bool(s and str(s).strip())
 
