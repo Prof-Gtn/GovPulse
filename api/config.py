@@ -25,7 +25,6 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = 8
 
 # CORS — allow the frontend origin
-import os
 
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
