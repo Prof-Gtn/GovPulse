@@ -25,11 +25,9 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = 8
 
 # CORS — allow the frontend origin
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8000",
-    "https://*.vercel.app",
-    "https://*.netlify.app",
-    "*",  # we'll tighten this in production
-]
+import os
+
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5500,http://localhost:3000"
+).split(",")
