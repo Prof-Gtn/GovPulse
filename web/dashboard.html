@@ -11,484 +11,511 @@
 </head>
 <body>
 
-<!-- ============================================================
-     TOP NAVIGATION (White)
-     ============================================================ -->
-<header class="topnav">
-    <div class="topnav-inner">
-        <a href="dashboard.html" class="brand">
-            <img src="assets/coat_of_arms.png" alt="Coat of Arms" class="brand-coat">
-            <div class="brand-divider"></div>
-            <img src="assets/govpulse_logo.png" alt="GovPulse" class="brand-logo" onerror="this.style.display='none'">
-            <span class="brand-text">GovPulse</span>
+<div class="app-shell">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar__brand">
+            <div class="sidebar__brand-left">
+                <img src="assets/coat_of_arms.png" alt="Coat of Arms">
+                <div class="sidebar__brand-divider"></div>
+                <span class="sidebar__brand-name">GovPulse</span>
+            </div>
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M15 18l-6-6 6-6"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- My Ministry — only shown to ministry users -->
+        <a href="ministry.html" class="sidebar__link" id="sidebarMyMinistry" title="My Ministry" style="display: none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 12h.01M9 15h.01M9 18h.01M15 9h.01M15 12h.01M15 15h.01M15 18h.01"/>
+            </svg>
+            <span>My Ministry</span>
         </a>
 
-        <div class="user-menu">
-            <div class="user-info">
-                <div class="user-label">Signed in as</div>
-                <div class="user-name" id="userName">…</div>
+        <div class="sidebar__section-label">MICT</div>
+
+        <nav class="sidebar__nav">
+            <button class="sidebar__link active" data-tab="coverage" title="Coverage">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 6h16M4 12h16M4 18h10"/>
+                </svg>
+                <span>Coverage</span>
+            </button>
+            <button class="sidebar__link" data-tab="analytics" title="Analytics">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>
+                </svg>
+                <span>Analytics</span>
+            </button>
+            <button class="sidebar__link" data-tab="brief" title="Brief">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                </svg>
+                <span>Brief</span>
+            </button>
+            <button class="sidebar__link" data-tab="audit" title="Audit">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 6v6l4 2"/>
+                </svg>
+                <span>Audit</span>
+            </button>
+
+            <!-- Admin section — only shown to admins -->
+            <div id="adminBlock" style="display: none;">
+                <div class="sidebar__section-label" style="margin-top: 16px;">Admin</div>
+
+                <a href="admin.html" class="sidebar__link" id="sidebarAdmin" title="User Management">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+                    </svg>
+                    <span>User Management</span>
+                </a>
             </div>
-            <div class="user-avatar" id="userAvatar">–</div>
-            <button class="btn-logout" id="btnLogout">Logout</button>
+        </nav>
+
+        <div class="sidebar__footer">
+            <div class="sidebar__user">
+                <div class="sidebar__user-avatar" id="userAvatar">–</div>
+                <div class="sidebar__user-info">
+                    <div class="sidebar__user-label">Signed in as</div>
+                    <div class="sidebar__user-name" id="userName">…</div>
+                </div>
+            </div>
+            <button class="sidebar__logout" id="btnLogout" title="Logout">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+                </svg>
+                <span>Logout</span>
+            </button>
         </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-with-sidebar">
+
+        <main class="main">
+
+            <!-- COVERAGE -->
+            <section id="tab-coverage">
+
+                <div class="page-banner">
+                    <div class="page-banner-inner">
+                        <div>
+                            <div class="banner-eyebrow">
+                                <span class="eyebrow-line"></span>
+                                <span class="eyebrow-text">Today's Coverage</span>
+                            </div>
+                            <h1 class="banner-title">Monitored Headlines</h1>
+                            <div class="banner-sub" id="coverageStamp">Loading…</div>
+                        </div>
+                        <div class="banner-actions">
+                            <button class="btn btn-white" id="btnRun">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                                </svg>
+                                Run Pipeline
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="stat-grid-glass">
+                        <div class="stat-glass positive">
+                            <div class="stat-glass-label">Positive</div>
+                            <div class="stat-glass-value" id="statPositive">–</div>
+                            <div class="stat-glass-sub" id="statPositiveSub">&nbsp;</div>
+                        </div>
+                        <div class="stat-glass neutral">
+                            <div class="stat-glass-label">Neutral</div>
+                            <div class="stat-glass-value" id="statNeutral">–</div>
+                            <div class="stat-glass-sub" id="statNeutralSub">&nbsp;</div>
+                        </div>
+                        <div class="stat-glass negative">
+                            <div class="stat-glass-label">Negative</div>
+                            <div class="stat-glass-value" id="statNegative">–</div>
+                            <div class="stat-glass-sub" id="statNegativeSub">&nbsp;</div>
+                        </div>
+                        <div class="stat-glass total">
+                            <div class="stat-glass-label">Total Stories</div>
+                            <div class="stat-glass-value" id="statTotal">–</div>
+                            <div class="stat-glass-sub" id="statTotalSub">&nbsp;</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="eyebrow">
+                            <span class="eyebrow-line"></span>
+                            <span class="eyebrow-text">Stories</span>
+                        </div>
+                        <div class="panel-header-row">
+                            <h2>Monitored Headlines</h2>
+                            <span class="note" id="shownCount"></span>
+                        </div>
+                    </div>
+
+                    <div class="filters">
+                        <div id="chips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+                        <input type="search"
+                               class="search-input"
+                               id="searchInput"
+                               placeholder="Search headlines or sources…"
+                               aria-label="Search headlines">
+                    </div>
+
+                    <div class="table-wrap">
+                        <table class="stack">
+                            <thead>
+                                <tr>
+                                    <th style="width:44px">#</th>
+                                    <th style="width:160px">Source</th>
+                                    <th>Headline</th>
+                                    <th style="width:110px">Sentiment</th>
+                                    <th style="width:200px">Institution</th>
+                                    <th style="width:90px">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="storiesBody">
+                                <tr><td colspan="6" class="empty">Loading stories…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ANALYTICS -->
+            <section id="tab-analytics" hidden>
+
+                <div class="page-banner">
+                    <div class="page-banner-inner">
+                        <div>
+                            <div class="banner-eyebrow">
+                                <span class="eyebrow-line"></span>
+                                <span class="eyebrow-text">Intelligence</span>
+                            </div>
+                            <h1 class="banner-title">Analytics</h1>
+                            <div class="banner-sub">Sentiment, coverage, and institutional intelligence</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-grid-glass" style="grid-template-columns:repeat(3,1fr);">
+                        <div class="stat-glass total">
+                            <div class="stat-glass-label">Total Mentions</div>
+                            <div class="stat-glass-value" id="anaTotal">–</div>
+                            <div class="stat-glass-sub">in current cycle</div>
+                        </div>
+                        <div class="stat-glass positive">
+                            <div class="stat-glass-label">Response Rate</div>
+                            <div class="stat-glass-value" id="anaResponseRate">–</div>
+                            <div class="stat-glass-sub" id="anaResponseSub">&nbsp;</div>
+                        </div>
+                        <div class="stat-glass neutral">
+                            <div class="stat-glass-label">Ministries Covered</div>
+                            <div class="stat-glass-value" id="anaMinistries">–</div>
+                            <div class="stat-glass-sub">institutions mentioned</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel" style="margin-bottom:20px;">
+                    <div class="panel-header">
+                        <div class="eyebrow">
+                            <span class="eyebrow-line"></span>
+                            <span class="eyebrow-text">Period</span>
+                        </div>
+                        <div class="panel-header-row">
+                            <h2>Time Range</h2>
+                            <span class="note" id="analyticsPeriodLabel">Showing: Last 7 days</span>
+                        </div>
+                    </div>
+                    <div class="panel-body" style="padding:14px 22px;">
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;" id="analyticsFilters">
+                            <button class="chip" data-days="1">Today</button>
+                            <button class="chip active" data-days="7">Week</button>
+                            <button class="chip" data-days="14">2 Weeks</button>
+                            <button class="chip" data-days="30">Month</button>
+                            <button class="chip" data-days="9999">All Time</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-grid" style="grid-template-columns: 2fr 1fr; margin-bottom:20px;">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="eyebrow">
+                                <span class="eyebrow-line"></span>
+                                <span class="eyebrow-text">Trend</span>
+                            </div>
+                            <div class="panel-header-row">
+                                <h2 id="trendTitle">Sentiment Trend</h2>
+                                <span class="note">Coverage over time</span>
+                            </div>
+                        </div>
+                        <div class="panel-body">
+                            <div class="chart-container" style="height:300px;">
+                                <canvas id="chartTrend"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="eyebrow">
+                                <span class="eyebrow-line"></span>
+                                <span class="eyebrow-text">Distribution</span>
+                            </div>
+                            <div class="panel-header-row">
+                                <h2>Sentiment Distribution</h2>
+                                <span class="note">Share of coverage</span>
+                            </div>
+                        </div>
+                        <div class="panel-body">
+                            <div class="chart-container" style="height:300px;">
+                                <canvas id="chartSentiment"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:20px;">
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="eyebrow">
+                                <span class="eyebrow-line"></span>
+                                <span class="eyebrow-text">By Institution</span>
+                            </div>
+                            <div class="panel-header-row">
+                                <h2>Sentiment by Ministry</h2>
+                                <span class="note">Top 8 institutions</span>
+                            </div>
+                        </div>
+                        <div class="panel-body">
+                            <div class="chart-container" style="height:380px;">
+                                <canvas id="chartMinistryStack"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="eyebrow">
+                                <span class="eyebrow-line"></span>
+                                <span class="eyebrow-text">People</span>
+                            </div>
+                            <div class="panel-header-row">
+                                <h2>Top Officials Mentioned</h2>
+                                <span class="note">By mention count</span>
+                            </div>
+                        </div>
+                        <div class="panel-body">
+                            <div class="chart-container" style="height:380px;">
+                                <canvas id="chartOfficials"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="eyebrow">
+                            <span class="eyebrow-line"></span>
+                            <span class="eyebrow-text">Outlets</span>
+                        </div>
+                        <div class="panel-header-row">
+                            <h2>Coverage by Source</h2>
+                            <span class="note">Story count per outlet</span>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="chart-container" style="height:260px;">
+                            <canvas id="chartSources"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- BRIEF -->
+            <section id="tab-brief" hidden>
+
+                <div class="page-banner">
+                    <div class="page-banner-inner">
+                        <div>
+                            <div class="banner-eyebrow">
+                                <span class="eyebrow-line"></span>
+                                <span class="eyebrow-text">Daily Brief</span>
+                            </div>
+                            <h1 class="banner-title">Compiled for Cabinet</h1>
+                            <div class="banner-sub">Ministers and Executive Directors</div>
+                        </div>
+                        <div class="banner-actions">
+                            <button class="btn btn-white-outline" id="btnRegenerate">Regenerate</button>
+                            <button class="btn btn-white-outline" id="btnDownloadXlsx">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                                </svg>
+                                Excel
+                            </button>
+                            <button class="btn btn-white" id="btnDownloadPdf">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                                </svg>
+                                PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="stat-grid-glass">
+                        <div class="stat-glass total">
+                            <div class="stat-glass-label">PDF File</div>
+                            <div class="stat-glass-value" id="briefPdf" style="font-size:18px;">–</div>
+                            <div class="stat-glass-sub">&nbsp;</div>
+                        </div>
+                        <div class="stat-glass total">
+                            <div class="stat-glass-label">Excel File</div>
+                            <div class="stat-glass-value" id="briefXlsx" style="font-size:18px;">–</div>
+                            <div class="stat-glass-sub">&nbsp;</div>
+                        </div>
+                        <div class="stat-glass total">
+                            <div class="stat-glass-label">Stories in Brief</div>
+                            <div class="stat-glass-value" id="briefCount">–</div>
+                            <div class="stat-glass-sub">mapped only</div>
+                        </div>
+                        <div class="stat-glass positive">
+                            <div class="stat-glass-label">Approved Responses</div>
+                            <div class="stat-glass-value" id="briefApprovals">–</div>
+                            <div class="stat-glass-sub">in this brief</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="eyebrow">
+                            <span class="eyebrow-line"></span>
+                            <span class="eyebrow-text">Preview</span>
+                        </div>
+                        <div class="panel-header-row">
+                            <h2>Brief Preview</h2>
+                            <span class="note">Mapped stories only</span>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="stack">
+                            <thead>
+                                <tr>
+                                    <th>Headline</th>
+                                    <th style="width:110px">Sentiment</th>
+                                    <th style="width:200px">Institution</th>
+                                    <th style="width:30%">Comment</th>
+                                    <th style="width:70px">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="briefBody">
+                                <tr><td colspan="5" class="empty">Loading brief…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AUDIT -->
+            <section id="tab-audit" hidden>
+
+                <div class="page-banner">
+                    <div class="page-banner-inner">
+                        <div>
+                            <div class="banner-eyebrow">
+                                <span class="eyebrow-line"></span>
+                                <span class="eyebrow-text">Accountability</span>
+                            </div>
+                            <h1 class="banner-title">Audit Trail</h1>
+                            <div class="banner-sub">Every action, timestamped and attributed</div>
+                        </div>
+                        <div class="banner-actions">
+                            <button class="btn btn-white-outline" id="btnRefreshAudit">⟳ Refresh</button>
+                        </div>
+                    </div>
+
+                    <div class="stat-grid-glass">
+                        <div class="stat-glass total">
+                            <div class="stat-glass-label">Total Events</div>
+                            <div class="stat-glass-value" id="auditTotal">–</div>
+                            <div class="stat-glass-sub">logged</div>
+                        </div>
+                        <div class="stat-glass positive">
+                            <div class="stat-glass-label">Approvals</div>
+                            <div class="stat-glass-value" id="auditApprovals">–</div>
+                            <div class="stat-glass-sub">responses</div>
+                        </div>
+                        <div class="stat-glass neutral">
+                            <div class="stat-glass-label">Edits</div>
+                            <div class="stat-glass-value" id="auditEdits">–</div>
+                            <div class="stat-glass-sub">story changes</div>
+                        </div>
+                        <div class="stat-glass total">
+                            <div class="stat-glass-label">Pipeline Runs</div>
+                            <div class="stat-glass-value" id="auditPipeline">–</div>
+                            <div class="stat-glass-sub">stages</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="eyebrow">
+                            <span class="eyebrow-line"></span>
+                            <span class="eyebrow-text">Activity</span>
+                        </div>
+                        <div class="panel-header-row">
+                            <h2>Activity Log</h2>
+                            <span class="note" id="auditCount"></span>
+                        </div>
+                    </div>
+
+                    <div class="filters">
+                        <div id="auditChips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+                        <input type="search"
+                               class="search-input"
+                               id="auditSearch"
+                               placeholder="Search by user, story, or action…">
+                    </div>
+
+                    <div class="table-wrap" style="max-height:520px;">
+                        <table class="stack">
+                            <thead>
+                                <tr>
+                                    <th style="width:180px">Timestamp</th>
+                                    <th style="width:130px">User</th>
+                                    <th style="width:170px">Action</th>
+                                    <th>Target</th>
+                                    <th style="width:220px">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditBody">
+                                <tr><td colspan="5" class="empty">Loading audit log…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </section>
+
+        </main>
+
     </div>
-</header>
-
-<!-- ============================================================
-     TABS
-     ============================================================ -->
-<nav class="tabs">
-    <div class="tabs-inner">
-        <button class="tab active" data-tab="coverage">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 6h16M4 12h16M4 18h10"/>
-            </svg>
-            Coverage
-        </button>
-        <button class="tab" data-tab="analytics">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>
-            </svg>
-            Analytics
-        </button>
-        <button class="tab" data-tab="brief">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
-            </svg>
-            Brief
-        </button>
-        <button class="tab" data-tab="audit">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6v6l4 2"/>
-            </svg>
-            Audit
-        </button>
-        <a href="admin.html" class="tab" id="tabAdmin" style="text-decoration:none; margin-left:auto;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-            </svg>
-            Admin
-        </a>
-    </div>
-</nav>
-
-<!-- ============================================================
-     MAIN
-     ============================================================ -->
-<main class="main">
-
-    <!-- COVERAGE -->
-    <section id="tab-coverage">
-
-        <div class="page-banner">
-            <div class="page-banner-inner">
-                <div>
-                    <div class="banner-eyebrow">
-                        <span class="eyebrow-line"></span>
-                        <span class="eyebrow-text">Today's Coverage</span>
-                    </div>
-                    <h1 class="banner-title">Monitored Headlines</h1>
-                    <div class="banner-sub" id="coverageStamp">Loading…</div>
-                </div>
-                <div class="banner-actions">
-                    <button class="btn btn-white" id="btnRun">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M23 4v6h-6M1 20v-6h6"/>
-                            <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
-                        </svg>
-                        Run Pipeline
-                    </button>
-                </div>
-            </div>
-
-            <div class="stat-grid-glass">
-                <div class="stat-glass positive">
-                    <div class="stat-glass-label">Positive</div>
-                    <div class="stat-glass-value" id="statPositive">–</div>
-                    <div class="stat-glass-sub" id="statPositiveSub">&nbsp;</div>
-                </div>
-                <div class="stat-glass neutral">
-                    <div class="stat-glass-label">Neutral</div>
-                    <div class="stat-glass-value" id="statNeutral">–</div>
-                    <div class="stat-glass-sub" id="statNeutralSub">&nbsp;</div>
-                </div>
-                <div class="stat-glass negative">
-                    <div class="stat-glass-label">Negative</div>
-                    <div class="stat-glass-value" id="statNegative">–</div>
-                    <div class="stat-glass-sub" id="statNegativeSub">&nbsp;</div>
-                </div>
-                <div class="stat-glass total">
-                    <div class="stat-glass-label">Total Stories</div>
-                    <div class="stat-glass-value" id="statTotal">–</div>
-                    <div class="stat-glass-sub" id="statTotalSub">&nbsp;</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-header">
-                <div class="eyebrow">
-                    <span class="eyebrow-line"></span>
-                    <span class="eyebrow-text">Stories</span>
-                </div>
-                <div class="panel-header-row">
-                    <h2>Monitored Headlines</h2>
-                    <span class="note" id="shownCount"></span>
-                </div>
-            </div>
-
-            <div class="filters">
-                <div id="chips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
-                <input type="search"
-                       class="search-input"
-                       id="searchInput"
-                       placeholder="Search headlines or sources…"
-                       aria-label="Search headlines">
-            </div>
-
-            <div class="table-wrap">
-                <table class="stack">
-                    <thead>
-                        <tr>
-                            <th style="width:44px">#</th>
-                            <th style="width:160px">Source</th>
-                            <th>Headline</th>
-                            <th style="width:110px">Sentiment</th>
-                            <th style="width:200px">Institution</th>
-                            <th style="width:90px">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="storiesBody">
-                        <tr><td colspan="6" class="empty">Loading stories…</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
-
-    <!-- ANALYTICS -->
-    <section id="tab-analytics" hidden>
-
-        <div class="page-banner">
-            <div class="page-banner-inner">
-                <div>
-                    <div class="banner-eyebrow">
-                        <span class="eyebrow-line"></span>
-                        <span class="eyebrow-text">Intelligence</span>
-                    </div>
-                    <h1 class="banner-title">Analytics</h1>
-                    <div class="banner-sub">Sentiment, coverage, and institutional intelligence</div>
-                </div>
-            </div>
-
-            <div class="stat-grid-glass" style="grid-template-columns:repeat(3,1fr);">
-                <div class="stat-glass total">
-                    <div class="stat-glass-label">Total Mentions</div>
-                    <div class="stat-glass-value" id="anaTotal">–</div>
-                    <div class="stat-glass-sub">in current cycle</div>
-                </div>
-                <div class="stat-glass positive">
-                    <div class="stat-glass-label">Response Rate</div>
-                    <div class="stat-glass-value" id="anaResponseRate">–</div>
-                    <div class="stat-glass-sub" id="anaResponseSub">&nbsp;</div>
-                </div>
-                <div class="stat-glass neutral">
-                    <div class="stat-glass-label">Ministries Covered</div>
-                    <div class="stat-glass-value" id="anaMinistries">–</div>
-                    <div class="stat-glass-sub">institutions mentioned</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel" style="margin-bottom:20px;">
-            <div class="panel-header">
-                <div class="eyebrow">
-                    <span class="eyebrow-line"></span>
-                    <span class="eyebrow-text">Period</span>
-                </div>
-                <div class="panel-header-row">
-                    <h2>Time Range</h2>
-                    <span class="note" id="analyticsPeriodLabel">Showing: Last 7 days</span>
-                </div>
-            </div>
-            <div class="panel-body" style="padding:14px 22px;">
-                <div style="display:flex; gap:8px; flex-wrap:wrap;" id="analyticsFilters">
-                    <button class="chip" data-days="1">Today</button>
-                    <button class="chip active" data-days="7">Week</button>
-                    <button class="chip" data-days="14">2 Weeks</button>
-                    <button class="chip" data-days="30">Month</button>
-                    <button class="chip" data-days="9999">All Time</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="charts-grid" style="grid-template-columns: 2fr 1fr; margin-bottom:20px;">
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="eyebrow">
-                        <span class="eyebrow-line"></span>
-                        <span class="eyebrow-text">Trend</span>
-                    </div>
-                    <div class="panel-header-row">
-                        <h2>7-Day Sentiment Trend</h2>
-                        <span class="note">Coverage over time</span>
-                    </div>
-                </div>
-                <div class="panel-body">
-                    <div class="chart-container" style="height:300px;">
-                        <canvas id="chartTrend"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="eyebrow">
-                        <span class="eyebrow-line"></span>
-                        <span class="eyebrow-text">Distribution</span>
-                    </div>
-                    <div class="panel-header-row">
-                        <h2>Sentiment Distribution</h2>
-                        <span class="note">Share of coverage</span>
-                    </div>
-                </div>
-                <div class="panel-body">
-                    <div class="chart-container" style="height:300px;">
-                        <canvas id="chartSentiment"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="charts-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:20px;">
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="eyebrow">
-                        <span class="eyebrow-line"></span>
-                        <span class="eyebrow-text">By Institution</span>
-                    </div>
-                    <div class="panel-header-row">
-                        <h2>Sentiment by Ministry</h2>
-                        <span class="note">Top 8 institutions</span>
-                    </div>
-                </div>
-                <div class="panel-body">
-                    <div class="chart-container" style="height:380px;">
-                        <canvas id="chartMinistryStack"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="eyebrow">
-                        <span class="eyebrow-line"></span>
-                        <span class="eyebrow-text">People</span>
-                    </div>
-                    <div class="panel-header-row">
-                        <h2>Top Officials Mentioned</h2>
-                        <span class="note">By mention count</span>
-                    </div>
-                </div>
-                <div class="panel-body">
-                    <div class="chart-container" style="height:380px;">
-                        <canvas id="chartOfficials"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-header">
-                <div class="eyebrow">
-                    <span class="eyebrow-line"></span>
-                    <span class="eyebrow-text">Outlets</span>
-                </div>
-                <div class="panel-header-row">
-                    <h2>Coverage by Source</h2>
-                    <span class="note">Story count per outlet</span>
-                </div>
-            </div>
-            <div class="panel-body">
-                <div class="chart-container" style="height:260px;">
-                    <canvas id="chartSources"></canvas>
-                </div>
-            </div>
-        </div>
-
-    </section>
-
-    <!-- BRIEF -->
-    <section id="tab-brief" hidden>
-
-        <div class="page-banner">
-            <div class="page-banner-inner">
-                <div>
-                    <div class="banner-eyebrow">
-                        <span class="eyebrow-line"></span>
-                        <span class="eyebrow-text">Daily Brief</span>
-                    </div>
-                    <h1 class="banner-title">Compiled for Cabinet</h1>
-                    <div class="banner-sub">Ministers and Executive Directors</div>
-                </div>
-                <div class="banner-actions">
-                    <button class="btn btn-white-outline" id="btnRegenerate">Regenerate</button>
-                    <button class="btn btn-white-outline" id="btnDownloadXlsx">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                        </svg>
-                        Excel
-                    </button>
-                    <button class="btn btn-white" id="btnDownloadPdf">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                        </svg>
-                        PDF
-                    </button>
-                </div>
-            </div>
-
-            <div class="stat-grid-glass">
-                <div class="stat-glass total">
-                    <div class="stat-glass-label">PDF File</div>
-                    <div class="stat-glass-value" id="briefPdf" style="font-size:18px;">–</div>
-                    <div class="stat-glass-sub">&nbsp;</div>
-                </div>
-                <div class="stat-glass total">
-                    <div class="stat-glass-label">Excel File</div>
-                    <div class="stat-glass-value" id="briefXlsx" style="font-size:18px;">–</div>
-                    <div class="stat-glass-sub">&nbsp;</div>
-                </div>
-                <div class="stat-glass total">
-                    <div class="stat-glass-label">Stories in Brief</div>
-                    <div class="stat-glass-value" id="briefCount">–</div>
-                    <div class="stat-glass-sub">mapped only</div>
-                </div>
-                <div class="stat-glass positive">
-                    <div class="stat-glass-label">Approved Responses</div>
-                    <div class="stat-glass-value" id="briefApprovals">–</div>
-                    <div class="stat-glass-sub">in this brief</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-header">
-                <div class="eyebrow">
-                    <span class="eyebrow-line"></span>
-                    <span class="eyebrow-text">Preview</span>
-                </div>
-                <div class="panel-header-row">
-                    <h2>Brief Preview</h2>
-                    <span class="note">Mapped stories only</span>
-                </div>
-            </div>
-            <div class="table-wrap">
-                <table class="stack">
-                    <thead>
-                        <tr>
-                            <th>Headline</th>
-                            <th style="width:110px">Sentiment</th>
-                            <th style="width:200px">Institution</th>
-                            <th style="width:30%">Comment</th>
-                            <th style="width:70px">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="briefBody">
-                        <tr><td colspan="5" class="empty">Loading brief…</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
-
-    <!-- AUDIT -->
-    <section id="tab-audit" hidden>
-
-        <div class="page-banner">
-            <div class="page-banner-inner">
-                <div>
-                    <div class="banner-eyebrow">
-                        <span class="eyebrow-line"></span>
-                        <span class="eyebrow-text">Accountability</span>
-                    </div>
-                    <h1 class="banner-title">Audit Trail</h1>
-                    <div class="banner-sub">Every action, timestamped and attributed</div>
-                </div>
-                <div class="banner-actions">
-                    <button class="btn btn-white-outline" id="btnRefreshAudit">⟳ Refresh</button>
-                </div>
-            </div>
-
-            <div class="stat-grid-glass">
-                <div class="stat-glass total">
-                    <div class="stat-glass-label">Total Events</div>
-                    <div class="stat-glass-value" id="auditTotal">–</div>
-                    <div class="stat-glass-sub">logged</div>
-                </div>
-                <div class="stat-glass positive">
-                    <div class="stat-glass-label">Approvals</div>
-                    <div class="stat-glass-value" id="auditApprovals">–</div>
-                    <div class="stat-glass-sub">responses</div>
-                </div>
-                <div class="stat-glass neutral">
-                    <div class="stat-glass-label">Edits</div>
-                    <div class="stat-glass-value" id="auditEdits">–</div>
-                    <div class="stat-glass-sub">story changes</div>
-                </div>
-                <div class="stat-glass total">
-                    <div class="stat-glass-label">Pipeline Runs</div>
-                    <div class="stat-glass-value" id="auditPipeline">–</div>
-                    <div class="stat-glass-sub">stages</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-header">
-                <div class="eyebrow">
-                    <span class="eyebrow-line"></span>
-                    <span class="eyebrow-text">Activity</span>
-                </div>
-                <div class="panel-header-row">
-                    <h2>Activity Log</h2>
-                    <span class="note" id="auditCount"></span>
-                </div>
-            </div>
-
-            <div class="filters">
-                <div id="auditChips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
-                <input type="search"
-                       class="search-input"
-                       id="auditSearch"
-                       placeholder="Search by user, story, or action…">
-            </div>
-
-            <div class="table-wrap" style="max-height:520px;">
-                <table class="stack">
-                    <thead>
-                        <tr>
-                            <th style="width:180px">Timestamp</th>
-                            <th style="width:130px">User</th>
-                            <th style="width:170px">Action</th>
-                            <th>Target</th>
-                            <th style="width:220px">Details</th>
-                        </tr>
-                    </thead>
-                    <tbody id="auditBody">
-                        <tr><td colspan="5" class="empty">Loading audit log…</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-    </section>
-
-</main>
+</div>
 
 <!-- RESPONSE MODAL -->
 <div class="modal-overlay" id="modalOverlay">
@@ -635,19 +662,82 @@
 
     const ORDER = { negative: 0, neutral: 1, positive: 2 };
 
+    // ============================================================
+    // USER + ROLE-BASED UI
+    // ============================================================
     const user = getUser() || {};
     $("#userName").textContent = user.name || user.username || "User";
     $("#userAvatar").textContent = (user.name || user.username || "U")
         .split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
     $("#btnLogout").onclick = logout;
 
-    if (user.role !== "admin") {
-        const adminTab = document.getElementById("tabAdmin");
-        if (adminTab) adminTab.style.display = "none";
+    // Show admin block only for admins
+    if (user.role === "admin") {
+        const adminBlock = document.getElementById("adminBlock");
+        if (adminBlock) adminBlock.style.display = "";
     }
 
+    // Show "My Ministry" link for ministry users
+    if (user.role === "ministry") {
+        const myMinistryLink = document.getElementById("sidebarMyMinistry");
+        if (myMinistryLink) myMinistryLink.style.display = "";
+    }
+
+    // Hide Run Pipeline for ministry and oversight users
+    if (user.role === "ministry" || user.role === "oversight") {
+    const runBtn = document.getElementById("btnRun");
+    if (runBtn) runBtn.style.display = "none";
+}
+
+// Hide Regenerate for oversight
+    if (user.role === "oversight") {
+    const regenBtn = document.getElementById("btnRegenerate");
+    if (regenBtn) regenBtn.style.display = "none";
+    }
+
+    // ============================================================
+    // SIDEBAR TOGGLE
+    // ============================================================
+    const appShell = document.querySelector(".app-shell");
+    const sidebarToggle = document.getElementById("sidebarToggle");
+
+    if (localStorage.getItem("govpulse_sidebar_collapsed") === "1") {
+        appShell.classList.add("collapsed");
+        if (sidebarToggle && sidebarToggle.querySelector("svg")) {
+            sidebarToggle.querySelector("svg").style.transform = "rotate(180deg)";
+        }
+    }
+
+    if (sidebarToggle) {
+        sidebarToggle.onclick = () => {
+            const isCollapsed = appShell.classList.toggle("collapsed");
+            const svg = sidebarToggle.querySelector("svg");
+            if (svg) svg.style.transform = isCollapsed ? "rotate(180deg)" : "rotate(0deg)";
+            localStorage.setItem("govpulse_sidebar_collapsed", isCollapsed ? "1" : "0");
+        };
+    }
+
+    // ============================================================
+    // MOBILE SIDEBAR
+    // ============================================================
+    const sidebar = document.getElementById("sidebar");
+    const overlay = document.getElementById("sidebarOverlay");
+
+    function closeSidebar() {
+        if (sidebar) sidebar.classList.remove("open");
+        if (overlay) overlay.classList.remove("open");
+    }
+
+    if (overlay) overlay.onclick = closeSidebar;
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeSidebar();
+    });
+
+    // ============================================================
+    // TAB SWITCHING
+    // ============================================================
     function switchTab(name) {
-        $$(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+        $$(".sidebar__link").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
         ["coverage", "analytics", "brief", "audit"].forEach((n) => {
             $("#tab-" + n).hidden = n !== name;
         });
@@ -655,19 +745,23 @@
         if (name === "brief") renderBrief();
         if (name === "audit") renderAudit();
         history.replaceState(null, "", "#" + name);
+        closeSidebar();
     }
 
-    $$(".tab").forEach((b) => {
+    $$(".sidebar__link").forEach((b) => {
         if (b.dataset.tab) b.onclick = () => switchTab(b.dataset.tab);
     });
 
+    // ============================================================
+    // DATA
+    // ============================================================
     async function getJSON(path) {
         const r = await apiFetch(path);
         if (!r.ok) throw new Error(path + " " + r.status);
         return r.json();
     }
 
-        async function loadAll() {
+    async function loadAll() {
         const bust = "?_t=" + Date.now();
         try {
             const d = await getJSON("/stories?date=today" + bust.replace("?", "&"));
@@ -699,6 +793,9 @@
     const count = (k) => stories.filter((s) => normalizeSentiment(s.sentiment) === k).length;
     const responseFor = (h) => responses.find((r) => r.headline === h);
 
+    // ============================================================
+    // COVERAGE
+    // ============================================================
     function renderCoverage() {
         const total = stories.length;
         const pos = count("positive");
@@ -789,6 +886,9 @@
 
     $("#searchInput").oninput = renderCoverage;
 
+    // ============================================================
+    // ANALYTICS
+    // ============================================================
     async function renderAnalytics() {
         if (!window.Chart) return;
 
@@ -803,6 +903,19 @@
         Chart.defaults.color = "#475569";
 
         const days = currentAnalyticsDays;
+
+        // Update trend title based on selected period
+        const trendTitleMap = {
+             1: "Today's Sentiment Trend",
+             7: "7-Day Sentiment Trend",
+             14: "14-Day Sentiment Trend",
+             30: "30-Day Sentiment Trend",
+            9999: "All-Time Sentiment Trend",
+        };
+        const trendTitleEl = document.getElementById("trendTitle");
+        if (trendTitleEl) {
+            trendTitleEl.textContent = trendTitleMap[days] || "Sentiment Trend";
+}
 
         try {
             const summary = await getJSON(`/stories/analytics/summary?days=${days}`);
@@ -1036,6 +1149,9 @@
         }
     }
 
+    // ============================================================
+    // BRIEF
+    // ============================================================
     function renderBrief() {
         const mapped = stories.filter(isMapped);
 
@@ -1098,6 +1214,9 @@
         });
     }
 
+    // ============================================================
+    // EDIT STORY
+    // ============================================================
     function openEditModal(headline) {
         const story = stories.find((s) => s.headline === headline);
         if (!story) return;
@@ -1162,6 +1281,9 @@
         btn.textContent = original;
     };
 
+    // ============================================================
+    // RESPONSE MODAL
+    // ============================================================
     function openResponseModal(story) {
         current = story;
         const r = responseFor(story.headline);
@@ -1286,6 +1408,9 @@
         btn.textContent = original;
     };
 
+    // ============================================================
+    // PIPELINE
+    // ============================================================
     async function runPipeline(btn, label) {
         const original = btn.textContent;
         btn.disabled = true;
@@ -1365,30 +1490,35 @@
     }
 
     $("#btnRun").onclick = () => runPipeline($("#btnRun"), "Running…");
+
+    // ============================================================
+    // REGENERATE BRIEF
+    // ============================================================
     $("#btnRegenerate").onclick = async function () {
-    const btn = this;
-    const original = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "Regenerating…";
+        const btn = this;
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Regenerating…";
 
-    try {
-        const r = await apiFetch("/brief/regenerate", { method: "POST" });
-        if (!r.ok) {
-            const err = await r.json().catch(() => ({}));
-            throw new Error(err.detail || `HTTP ${r.status}`);
+        try {
+            const r = await apiFetch("/brief/regenerate", { method: "POST" });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                throw new Error(err.detail || `HTTP ${r.status}`);
+            }
+            showToast("✅ Brief regenerated.");
+            await loadAll();
+        } catch (e) {
+            showToast("Error: " + e.message);
         }
-        const data = await r.json();
-        showToast("✅ Brief regenerated.");
-        // Refresh the brief status
-        await loadAll();
-    } catch (e) {
-        showToast("Error: " + e.message);
-    }
 
-    btn.disabled = false;
-    btn.textContent = original;
-};
+        btn.disabled = false;
+        btn.textContent = original;
+    };
 
+    // ============================================================
+    // DOWNLOADS
+    // ============================================================
     function download(kind) {
         const t = getToken();
         const url = `${API_BASE}/brief/${kind}?token=${encodeURIComponent(t)}&t=${Date.now()}`;
@@ -1398,6 +1528,9 @@
     $("#btnDownloadPdf").onclick = () => download("pdf");
     $("#btnDownloadXlsx").onclick = () => download("xlsx");
 
+    // ============================================================
+    // AUDIT
+    // ============================================================
     let auditEntries = [];
     let auditFilter = "all";
 
@@ -1521,6 +1654,9 @@
     document.getElementById("auditSearch").oninput = renderAudit;
     document.getElementById("btnRefreshAudit").onclick = renderAudit;
 
+    // ============================================================
+    // ANALYTICS TIME FILTER
+    // ============================================================
     document.querySelectorAll("#analyticsFilters .chip").forEach((chip) => {
         chip.onclick = () => {
             document.querySelectorAll("#analyticsFilters .chip").forEach((c) =>
@@ -1543,6 +1679,9 @@
         };
     });
 
+    // ============================================================
+    // START
+    // ============================================================
     loadAll().then(() => {
         const hash = (location.hash || "").slice(1);
         if (hash && ["analytics", "brief", "audit", "coverage"].includes(hash)) {

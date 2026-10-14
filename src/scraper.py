@@ -8,8 +8,11 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import json
 import os
-import time
+import urllib3
 
+# NBC's SSL certificate is self-signed. We suppress the warning globally
+# but only use verify=False on NBC explicitly (see scrape_nbc_digital).
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 HEADERS = {
     "User-Agent": (
@@ -40,10 +43,18 @@ def scrape_namibian():
             if not headline_tag or not link_tag:
                 continue
 
+            headline = headline_tag.get_text(strip=True)
+            if not headline or len(headline) < 15:
+                continue
+
+            url_full = link_tag["href"]
+            if url_full.startswith("/"):
+                url_full = "https://www.namibian.com.na" + url_full
+
             stories.append({
                 "source": "The Namibian",
-                "headline": headline_tag.get_text(strip=True),
-                "url": link_tag["href"],
+                "headline": headline,
+                "url": url_full,
                 "scraped_at": datetime.now().isoformat(),
             })
     except Exception as e:
@@ -53,7 +64,7 @@ def scrape_namibian():
 
 
 # ------------------------------------------------------------------
-# NEW ERA  (uses cmsmasters_post_masonry articles with h3.entry-title)
+# NEW ERA
 # ------------------------------------------------------------------
 def scrape_newera():
     """Scrape New Era Live homepage."""
@@ -65,13 +76,11 @@ def scrape_newera():
         response.encoding = response.apparent_encoding
         soup = BeautifulSoup(response.text, "lxml")
 
-        # New Era wraps each card in <article class="cmsmasters_post_masonry">
         for article in soup.find_all("article"):
             classes = article.get("class", [])
             if not any("cmsmasters_post" in c for c in classes):
                 continue
 
-            # The headline is inside <h3 class="entry-title"><a href="...">...</a></h3>
             title_tag = article.find("h3", class_="entry-title") or article.find("h2")
             if not title_tag:
                 continue
@@ -81,12 +90,10 @@ def scrape_newera():
                 continue
 
             headline = link_tag.get_text(strip=True)
-            # Skip very short or empty headlines
-            if not headline or len(headline) < 10:
+            if not headline or len(headline) < 15:
                 continue
 
             url_full = link_tag["href"]
-            # Make absolute if relative
             if url_full.startswith("/"):
                 url_full = "https://neweralive.na" + url_full
 
@@ -103,15 +110,181 @@ def scrape_newera():
 
 
 # ------------------------------------------------------------------
+# NAMIBIAN SUN
+# ------------------------------------------------------------------
+def scrape_namibian_sun():
+    """
+    Scrape headlines from Namibian Sun (namibiansun.com).
+    The site has a self-signed SSL cert in its chain, so we use verify=False.
+    """
+    url = "https://www.namibiansun.com/"
+    stories = []
+
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=30, verify=False)
+        response.encoding = response.apparent_encoding
+        soup = BeautifulSoup(response.text, "lxml")
+    except Exception as e:
+        print(f"[ERROR] Namibian Sun: {e}")
+        return []
+
+    # Primary: article containers with a headline + link
+    for article in soup.find_all("article"):
+        headline_el = article.find("h2") or article.find("h3") or article.find("h4")
+        link_el = article.find("a", href=True)
+
+        if not headline_el or not link_el:
+            continue
+
+        headline = headline_el.get_text(strip=True)
+        if not headline or len(headline) < 15:
+            continue
+
+        href = link_el["href"]
+        if href.startswith("/"):
+            href = "https://www.namibiansun.com" + href
+
+        stories.append({
+            "source": "Namibian Sun",
+            "headline": headline,
+            "url": href,
+            "scraped_at": datetime.now().isoformat(),
+        })
+
+    # Fallback: anchors with long text pointing to sun.com articles
+    if not stories:
+        for link in soup.find_all("a", href=True):
+            text = link.get_text(strip=True)
+            href = link["href"]
+
+            if (
+                len(text) > 30
+                and "namibiansun.com" in href
+                and ("/news/" in href or "/article/" in href or href.count("/") >= 4)
+            ):
+                stories.append({
+                    "source": "Namibian Sun",
+                    "headline": text,
+                    "url": href,
+                    "scraped_at": datetime.now().isoformat(),
+                })
+
+    return stories
+
+
+# ------------------------------------------------------------------
+# WINDHOEK OBSERVER
+# ------------------------------------------------------------------
+def scrape_windhoek_observer():
+    """
+    Scrape headlines from Windhoek Observer (observer24.com.na).
+
+    The site structures headlines under <h2>/<h3> tags, some with
+    nested <a> links. Headlines may be inside <a href="..."> which
+    are then wrapped in <h2>/<h3>.
+    """
+    url = "https://observer24.com.na/"
+    stories = []
+
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=30)
+        response.encoding = response.apparent_encoding
+        soup = BeautifulSoup(response.text, "lxml")
+    except Exception as e:
+        print(f"[ERROR] Windhoek Observer: {e}")
+        return []
+
+    seen_headlines = set()
+
+    # The page uses <h2> and <h3> tags for headlines.
+    # Every headline has an <a> link inside (or wrapped by).
+    for heading in soup.find_all(["h2", "h3"]):
+        # Try to find the link inside the heading first
+        link = heading.find("a", href=True)
+
+        # If the heading itself is inside a link
+        if not link:
+            parent = heading.parent
+            if parent and parent.name == "a" and parent.get("href"):
+                link = parent
+
+        if not link:
+            continue
+
+        headline = heading.get_text(strip=True)
+        if not headline or len(headline) < 20:
+            continue
+
+        # Skip navigation/utility headings
+        if headline.lower() in {"top stories", "national", "money", "sport", "opinion", "world", "business"}:
+            continue
+
+        # Skip duplicates (same headline appears in multiple sections)
+        key = headline.lower()
+        if key in seen_headlines:
+            continue
+        seen_headlines.add(key)
+
+        href = link["href"]
+        if href.startswith("/"):
+            href = "https://observer24.com.na" + href
+        elif not href.startswith("http"):
+            href = "https://observer24.com.na/" + href.lstrip("/")
+
+        stories.append({
+            "source": "Windhoek Observer",
+            "headline": headline,
+            "url": href,
+            "scraped_at": datetime.now().isoformat(),
+        })
+
+    # Fallback: anchors with long text
+    if not stories:
+        for link in soup.find_all("a", href=True):
+            text = link.get_text(strip=True)
+            href = link["href"]
+
+            if (
+                len(text) > 30
+                and "observer24.com.na" in href
+                and href.count("/") >= 4
+            ):
+                key = text.lower()
+                if key in seen_headlines:
+                    continue
+                seen_headlines.add(key)
+
+                stories.append({
+                    "source": "Windhoek Observer",
+                    "headline": text,
+                    "url": href,
+                    "scraped_at": datetime.now().isoformat(),
+                })
+
+    return stories
+
+
+# ------------------------------------------------------------------
 # NBC DIGITAL
 # ------------------------------------------------------------------
 def scrape_nbc_digital():
-    """Scrape NBC Digital news section."""
+    """
+    Scrape NBC Digital news section.
+
+    NOTE: NBC's SSL certificate is misconfigured (self-signed chain).
+    We use verify=False here deliberately. We flag this to the user
+    and skip gracefully if the site is unreachable.
+    """
     url = "https://www.nbc.na/news"
     stories = []
 
     try:
-        response = requests.get(url, headers=HEADERS, timeout=15)
+        response = requests.get(
+            url,
+            headers=HEADERS,
+            timeout=15,
+            verify=False,   # NBC's cert chain is broken
+        )
         response.encoding = response.apparent_encoding
         soup = BeautifulSoup(response.text, "lxml")
 
@@ -123,7 +296,7 @@ def scrape_nbc_digital():
                 continue
 
             headline = headline_tag.get_text(strip=True)
-            if not headline or len(headline) < 10:
+            if not headline or len(headline) < 15:
                 continue
 
             url_full = link_tag["href"]
@@ -137,25 +310,28 @@ def scrape_nbc_digital():
                 "scraped_at": datetime.now().isoformat(),
             })
     except Exception as e:
-        print(f"[ERROR] NBC Digital: {e}")
+        print(f"[WARN] NBC Digital unavailable — SSL issue on their end: {e}")
 
     return stories
 
 
 # ------------------------------------------------------------------
-# ARTICLE BODY FETCHER (multi-site)
+# ARTICLE BODY FETCHER
 # ------------------------------------------------------------------
 def fetch_article_body(url):
     """Fetch the full article text from a story page."""
     try:
-        response = requests.get(url, headers=HEADERS, timeout=15)
+        # NBC has a broken cert, use verify=False for it
+        verify = "nbc.na" not in url
+
+        response = requests.get(url, headers=HEADERS, timeout=15, verify=verify)
         response.encoding = response.apparent_encoding
         soup = BeautifulSoup(response.text, "lxml")
 
-        # Multiple body patterns across sites
         body_div = (
             soup.find("div", class_="entry-content")
             or soup.find("div", class_="cmsmasters_post_content")
+            or soup.find("div", class_="td-post-content")
             or soup.find("article")
         )
 
@@ -187,28 +363,43 @@ def scrape_all():
     print(f"      Found {len(ne)}")
     all_stories.extend(ne)
 
-    print("[3/4] Scraping NBC Digital...")
-    nbc = scrape_nbc_digital()
-    print(f"      Found {len(nbc)}")
-    all_stories.extend(nbc)
+    print("[3/4] Scraping Namibian Sun...")
+    sun = scrape_namibian_sun()
+    print(f"      Found {len(sun)}")
+    all_stories.extend(sun)
 
-    print(f"\n[4/4] Fetching full text for {len(all_stories)} stories (parallel)...")
+    print("[4/4] Scraping Windhoek Observer...")
+    obs = scrape_windhoek_observer()
+    print(f"      Found {len(obs)}")
+    all_stories.extend(obs)
+
+    # Deduplicate by headline (some sites repost wire content)
+    seen = set()
+    unique = []
+    for s in all_stories:
+        key = s.get("headline", "").strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            unique.append(s)
+
+    print(f"\n      Total unique stories: {len(unique)}")
+
+    print(f"\n[+] Fetching full text for {len(unique)} stories (parallel)...")
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def _fetch_one(idx_story):
         idx, story = idx_story
-        print(f"      [{idx}/{len(all_stories)}] {story['headline'][:60]}...")
+        print(f"      [{idx}/{len(unique)}] {story['headline'][:60]}...")
         story["body"] = fetch_article_body(story["url"])
         return story
 
-    # Fetch 5 at a time to be polite but fast
     with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [executor.submit(_fetch_one, (i, s)) for i, s in enumerate(all_stories, 1)]
+        futures = [executor.submit(_fetch_one, (i, s)) for i, s in enumerate(unique, 1)]
         for f in as_completed(futures):
-            f.result()  # Ensures exceptions are raised
+            f.result()
 
-    return all_stories
+    return unique
 
 
 def save_stories(stories, filename="data/raw/stories.json"):

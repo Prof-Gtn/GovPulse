@@ -11,8 +11,11 @@
                 extend: {
                     colors: {
                         navy: '#0B2265',
+                        'navy-deep': '#071A4A',
+                        'navy-dark': '#05133D',
                         gold: '#FFCE00',
                         electric: '#0066CC',
+                        'electric-dark': '#0052A3',
                     },
                     fontFamily: {
                         sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -21,47 +24,94 @@
             }
         }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
         body { font-family: 'Inter', sans-serif; }
         .eyebrow-line { width: 32px; height: 2px; background-color: #FFCE00; display: inline-block; }
         .hero-bg {
             background-color: #0B2265;
-            background-image: radial-gradient(circle at 100% 0%, rgba(255, 206, 0, 0.12) 0%, transparent 50%),
-                              radial-gradient(circle at 0% 100%, rgba(0, 102, 204, 0.25) 0%, transparent 50%);
+            background-image:
+                radial-gradient(circle at 100% 0%, rgba(255, 206, 0, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 0% 100%, rgba(0, 102, 204, 0.28) 0%, transparent 55%),
+                linear-gradient(135deg, #071A4A 0%, #0B2265 100%);
+        }
+        .hero-grid {
+            background-image:
+                linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 44px 44px;
         }
     </style>
 </head>
-<body class="hero-bg min-h-screen flex flex-col">
+<body class="min-h-screen flex">
 
-    <!-- TOP HEADER: BRAND ONLY -->
-    <header class="w-full px-6 pt-10 pb-6 flex items-center justify-center">
-        <a href="index.html" class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-            MICT | GovPulse
-        </a>
-    </header>
+    <!-- LEFT: BRANDING PANEL -->
+    <aside class="hidden lg:flex lg:w-1/2 hero-bg text-white flex-col justify-between p-14 relative overflow-hidden">
+        <div class="absolute inset-0 hero-grid opacity-60"></div>
 
-    <!-- MAIN: LOGIN FORM -->
-    <main class="flex-1 flex items-center justify-center px-6 pb-16">
+        <div class="relative z-10">
+            <a href="index.html" class="inline-flex items-center gap-4 mb-20">
+                <img src="assets/coat_of_arms.png" alt="Coat of Arms" class="h-14 w-auto">
+                <div class="h-10 w-px bg-white/20"></div>
+                <span class="text-2xl font-bold tracking-tight">GovPulse</span>
+            </a>
+
+            <div class="max-w-md">
+                            <div class="max-w-md">
+                <h1 class="text-4xl xl:text-5xl font-extrabold leading-tight mb-6 tracking-tight">
+                    Government Media<br>Intelligence Platform
+                </h1>
+                <p class="text-slate-300 text-lg leading-relaxed">
+                    Secure access for MICT analysts, ministry communication officers, and oversight personnel.
+                </p>
+
+                <div class="mt-12 pt-8 border-t border-white/10 space-y-3 text-sm">
+                    <div class="flex items-center gap-3 text-slate-300">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gold"></span>
+                        Role-based access control
+                    </div>
+                    <div class="flex items-center gap-3 text-slate-300">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gold"></span>
+                        Full audit trail on every action
+                    </div>
+                    <div class="flex items-center gap-3 text-slate-300">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gold"></span>
+                        Ministry-scoped views
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="relative z-10 text-xs text-slate-400">
+            © 2026 GovPulse · Ministry of Information and Communication Technology
+        </div>
+    </aside>
+
+    <!-- RIGHT: LOGIN FORM -->
+    <main class="w-full lg:w-1/2 flex items-center justify-center bg-slate-50 p-6 sm:p-10">
         <div class="w-full max-w-md">
 
-            <!-- Eyebrow + Title -->
-            <div class="text-center mb-8">
-                <div class="flex items-center justify-center gap-3 mb-5">
-                    <span class="eyebrow-line"></span>
-                    <span class="text-gold text-xs font-bold tracking-widest uppercase">GOVERNMENT MEDIA MONITORING SYSTEM</span>
-                    <span class="eyebrow-line"></span>
+            <!-- Mobile logo -->
+            <div class="lg:hidden flex items-center justify-center gap-3 mb-10">
+                <img src="assets/coat_of_arms.png" alt="Coat of Arms" class="h-12 w-auto">
+                <div class="h-8 w-px bg-slate-300"></div>
+                <div class="flex items-center gap-2 text-navy">
+                    <img src="assets/govpulse_logo.png" alt="GovPulse" class="h-8 w-auto object-contain" onerror="this.style.display='none'">
+                    <span class="text-xl font-bold tracking-tight">GovPulse</span>
                 </div>
-                <h1 class="text-3xl sm:text-4xl font-extrabold text-white mb-3 tracking-tight">
-                    Welcome back
-                </h1>
-                <p class="text-slate-300 text-sm sm:text-base">
-                    Sign in to access the Government Media Monitoring System.
-                </p>
             </div>
 
-            <!-- Login Card -->
-            <div class="bg-white rounded-xl shadow-2xl border border-white/10 p-8 sm:p-10">
+            <div class="mb-8">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="eyebrow-line"></span>
+                    <span class="text-electric text-xs font-bold tracking-widest uppercase">Sign In</span>
+                </div>
+                <h2 class="text-3xl font-extrabold text-navy mb-2 tracking-tight">Welcome back</h2>
+                <p class="text-slate-500">Sign in to access your dashboard.</p>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg border border-slate-100 p-8">
 
                 <div id="error-box" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-md px-4 py-3 mb-6">
                 </div>
@@ -71,7 +121,7 @@
                         <label for="username" class="block text-sm font-semibold text-slate-700 mb-2">
                             Username
                         </label>
-                        <input type="text" id="username" name="username" required
+                        <input type="text" id="username" name="username" required autofocus
                                class="w-full px-4 py-3 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-electric focus:border-transparent transition bg-slate-50 focus:bg-white"
                                placeholder="Enter your username">
                     </div>
@@ -86,7 +136,7 @@
                     </div>
 
                     <button type="submit" id="login-btn"
-                            class="w-full bg-electric text-white font-bold py-3.5 rounded-md hover:bg-blue-700 transition shadow-md flex items-center justify-center gap-2">
+                            class="w-full bg-electric text-white font-bold py-3.5 rounded-md hover:bg-electric-dark transition shadow-md flex items-center justify-center gap-2">
                         <span id="btn-text">Sign In</span>
                         <span id="btn-spinner" class="hidden">
                             <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
@@ -97,11 +147,11 @@
                     </button>
                 </form>
 
+
             </div>
 
-            <!-- Footer note -->
-            <div class="mt-8 text-center text-xs text-slate-400">
-                © 2026 GovPulse · Ministry of Information and Communication Technology | All rights reserved.
+            <div class="mt-8 text-center text-xs text-slate-400 lg:hidden">
+                © 2026 GovPulse · Government Media Intelligence Platform
             </div>
 
         </div>

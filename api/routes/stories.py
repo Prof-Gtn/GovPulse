@@ -267,11 +267,13 @@ def analytics_officials(days: int = 7, user: dict = Depends(get_current_user)):
     stories = _filter_by_days(stories, days)
 
     NON_PERSON_WORDS = {
-        "windhoek", "omaheke", "kunene", "bush", "namibia",
-        "swakopmund", "walvis", "katutura", "rundu", "oshakati",
-        "otjiwarongo", "gobabis", "keetmanshoop", "mariental",
-        "republic", "government", "ministry", "parliament",
-    }
+    "windhoek", "omaheke", "kunene", "bush", "namibia",
+    "swakopmund", "walvis", "katutura", "rundu", "oshakati",
+    "otjiwarongo", "gobabis", "keetmanshoop", "mariental",
+    "republic", "government", "ministry", "parliament",
+    "namibian sun", "new era", "the namibian", "windhoek observer",
+    "nbc", "nbc digital", "namibian broadcasting corporation",
+}
 
     counts = Counter()
     for s in stories:
