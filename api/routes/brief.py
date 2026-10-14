@@ -126,3 +126,78 @@ def regenerate_brief(user: dict = Depends(require_admin_or_analyst)):
         "message": "Brief regenerated from existing data",
         "stdout": r.stdout[-500:],
     }
+
+# ------------------------------------------------------------
+# BRIEF HISTORY
+# ------------------------------------------------------------
+BRIEFS_DIR = os.path.join(PROJECT_ROOT, "data", "processed", "briefs")
+
+
+@router.get("/history")
+def list_brief_history(user: dict = Depends(get_current_user)):
+    """
+    Return a list of all archived briefs.
+    Each entry: {date, has_pdf, has_xlsx}
+    """
+    if not os.path.exists(BRIEFS_DIR):
+        return {"count": 0, "briefs": []}
+
+    files = os.listdir(BRIEFS_DIR)
+    dates_set = set()
+
+    for f in files:
+        # Expected filenames: YYYY-MM-DD.pdf or YYYY-MM-DD.xlsx
+        if f.endswith(".pdf") or f.endswith(".xlsx"):
+            base = os.path.splitext(f)[0]
+            # Validate it looks like a date
+            if len(base) == 10 and base[4] == "-" and base[7] == "-":
+                dates_set.add(base)
+
+    briefs = []
+    for d in sorted(dates_set, reverse=True):  # newest first
+        briefs.append({
+            "date": d,
+            "has_pdf":  os.path.exists(os.path.join(BRIEFS_DIR, f"{d}.pdf")),
+            "has_xlsx": os.path.exists(os.path.join(BRIEFS_DIR, f"{d}.xlsx")),
+        })
+
+    return {"count": len(briefs), "briefs": briefs}
+
+
+@router.get("/history/{brief_date}/{kind}")
+def download_archived_brief(
+    brief_date: str,
+    kind: str,
+    token: Optional[str] = Query(None),
+):
+    """
+    Download an archived brief for a specific date.
+    kind = 'pdf' or 'xlsx'
+    """
+    decode_token_for_download(token)
+
+    if kind not in ("pdf", "xlsx"):
+        raise HTTPException(status_code=400, detail="kind must be 'pdf' or 'xlsx'")
+
+    # Sanitise the date — must be YYYY-MM-DD
+    if len(brief_date) != 10 or brief_date[4] != "-" or brief_date[7] != "-":
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    file_path = os.path.join(BRIEFS_DIR, f"{brief_date}.{kind}")
+    if not os.path.exists(file_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"No brief for {brief_date}",
+        )
+
+    media_type = (
+        "application/pdf"
+        if kind == "pdf"
+        else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    return FileResponse(
+        file_path,
+        media_type=media_type,
+        filename=f"daily_brief_{brief_date}.{kind}",
+    )

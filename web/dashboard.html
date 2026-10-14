@@ -61,6 +61,14 @@
                 </svg>
                 <span>Brief</span>
             </button>
+
+                        <button class="sidebar__link" data-tab="history" title="History">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 8v4l3 2M3.05 11a9 9 0 111.83 5.36M3 4v5h5"/>
+                </svg>
+                <span>History</span>
+            </button>
+
             <button class="sidebar__link" data-tab="audit" title="Audit">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="10"/>
@@ -68,6 +76,8 @@
                 </svg>
                 <span>Audit</span>
             </button>
+
+
 
             <!-- Admin section — only shown to admins -->
             <div id="adminBlock" style="display: none;">
@@ -433,6 +443,90 @@
                 </div>
             </section>
 
+                        <!-- HISTORY -->
+            <section id="tab-history" hidden>
+
+                <div class="page-banner">
+                    <div class="page-banner-inner">
+                        <div>
+                            <div class="banner-eyebrow">
+                                <span class="eyebrow-line"></span>
+                                <span class="eyebrow-text">Archive</span>
+                            </div>
+                            <h1 class="banner-title">Brief History</h1>
+                            <div class="banner-sub">Every daily brief, stored by date</div>
+                        </div>
+                        <div class="banner-actions">
+                            <button class="btn btn-white-outline" id="btnRefreshHistory">⟳ Refresh</button>
+                        </div>
+                    </div>
+
+                    <div class="stat-grid-glass" style="grid-template-columns: repeat(3, 1fr);">
+                        <div class="stat-glass total">
+                            <div class="stat-glass-label">Total Briefs</div>
+                            <div class="stat-glass-value" id="histTotal">–</div>
+                            <div class="stat-glass-sub">archived</div>
+                        </div>
+                        <div class="stat-glass total">
+                            <div class="stat-glass-label">Latest Brief</div>
+                            <div class="stat-glass-value" id="histLatest" style="font-size:20px;">–</div>
+                            <div class="stat-glass-sub">most recent</div>
+                        </div>
+                        <div class="stat-glass total">
+                            <div class="stat-glass-label">Earliest Brief</div>
+                            <div class="stat-glass-value" id="histEarliest" style="font-size:20px;">–</div>
+                            <div class="stat-glass-sub">first archived</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="eyebrow">
+                            <span class="eyebrow-line"></span>
+                            <span class="eyebrow-text">Archive</span>
+                        </div>
+                        <div class="panel-header-row">
+                            <h2>Available Briefs</h2>
+                            <span class="note" id="histCount"></span>
+                        </div>
+                    </div>
+
+                    <div class="filters" style="justify-content: space-between;">
+                        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                            <label for="histDatePicker" style="font-size:12px; font-weight:600; color:var(--mute); text-transform:uppercase; letter-spacing:0.05em;">
+                                Open by date:
+                            </label>
+                            <input type="date" id="histDatePicker"
+                                   style="padding:7px 12px; border:1px solid var(--rule); border-radius:6px; font-size:13px; font-family:var(--sans); background:white; color:var(--ink);">
+                            <button class="btn btn-primary btn-sm" id="btnOpenByDate">Open Brief</button>
+                        </div>
+                        <input type="search"
+                               class="search-input"
+                               id="histSearch"
+                               placeholder="Search dates…">
+                    </div>
+
+                    <div class="table-wrap">
+                        <table class="stack">
+                            <thead>
+                                <tr>
+                                    <th style="width:44px">#</th>
+                                    <th style="width:200px">Date</th>
+                                    <th style="width:140px">Day</th>
+                                    <th>Availability</th>
+                                    <th style="width:280px">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="histBody">
+                                <tr><td colspan="5" class="empty">Loading archive…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </section>
+
             <!-- AUDIT -->
             <section id="tab-audit" hidden>
 
@@ -686,6 +780,12 @@
         if (myMinistryLink) myMinistryLink.style.display = "";
     }
 
+    // Hide History tab from ministry users (they have their own page)
+    if (user.role === "ministry") {
+        const histLink = document.querySelector('.sidebar__link[data-tab="history"]');
+    if (histLink) histLink.style.display = "none";
+    }
+
     // Hide Run Pipeline for ministry and oversight users
     if (user.role === "ministry" || user.role === "oversight") {
     const runBtn = document.getElementById("btnRun");
@@ -741,12 +841,13 @@
     // ============================================================
     function switchTab(name) {
         $$(".sidebar__link").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
-        ["coverage", "analytics", "brief", "audit"].forEach((n) => {
+        ["coverage", "analytics", "brief", "audit", "history"].forEach((n) => {
             $("#tab-" + n).hidden = n !== name;
         });
-        if (name === "analytics") renderAnalytics();
+                if (name === "analytics") renderAnalytics();
         if (name === "brief") renderBrief();
         if (name === "audit") renderAudit();
+        if (name === "history") renderHistory();
         history.replaceState(null, "", "#" + name);
         closeSidebar();
     }
@@ -1654,6 +1755,148 @@
         });
     }
 
+        // ---------------------------------------------------------
+    // HISTORY
+    // ---------------------------------------------------------
+    let historyEntries = [];
+
+    async function loadHistory() {
+        try {
+            const r = await apiFetch("/brief/history");
+            if (!r.ok) throw new Error(r.status);
+            const data = await r.json();
+            historyEntries = data.briefs || [];
+        } catch (e) {
+            console.error("Failed to load history", e);
+            historyEntries = [];
+        }
+    }
+
+    function renderHistory() {
+        loadHistory().then(() => {
+            const tbody = document.getElementById("histBody");
+
+            // Stat tiles
+            const total = historyEntries.length;
+            document.getElementById("histTotal").textContent = total;
+
+            if (total === 0) {
+                document.getElementById("histLatest").textContent = "—";
+                document.getElementById("histEarliest").textContent = "—";
+            } else {
+                // Newest first — historyEntries is already sorted desc
+                const latest = historyEntries[0].date;
+                const earliest = historyEntries[total - 1].date;
+                document.getElementById("histLatest").textContent =
+                    new Date(latest).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+                document.getElementById("histEarliest").textContent =
+                    new Date(earliest).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+            }
+
+            // Set the date picker to the latest brief (if any)
+            const picker = document.getElementById("histDatePicker");
+            if (!picker.value && historyEntries.length > 0) {
+                picker.value = historyEntries[0].date;
+            }
+
+            const search = (document.getElementById("histSearch").value || "").toLowerCase();
+            let filtered = historyEntries;
+            if (search) {
+                filtered = filtered.filter((h) => h.date.includes(search));
+            }
+
+            document.getElementById("histCount").textContent =
+                `${filtered.length} of ${historyEntries.length} briefs`;
+
+            if (!filtered.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty">No briefs archived yet. Run the pipeline to generate one.</td></tr>';
+                return;
+            }
+
+            const fmt = (iso) => {
+                try {
+                    const d = new Date(iso);
+                    return {
+                        full: d.toLocaleDateString("en-GB", {
+                            day: "2-digit", month: "long", year: "numeric",
+                        }),
+                        day: d.toLocaleDateString("en-GB", { weekday: "long" }),
+                    };
+                } catch { return { full: iso, day: "" }; }
+            };
+
+            tbody.innerHTML = filtered.map((h, i) => {
+                const { full, day } = fmt(h.date);
+                const pdfBtn = h.has_pdf
+                    ? `<button class="btn btn-primary btn-sm" data-hist-pdf="${h.date}"> Open PDF</button>`
+                    : `<span class="pill neutral">No PDF</span>`;
+                const xlsxBtn = h.has_xlsx
+                    ? `<button class="btn btn-secondary btn-sm" data-hist-xlsx="${h.date}"> Open Excel</button>`
+                    : `<span class="pill neutral">No Excel</span>`;
+
+                return `
+                    <tr class="row-neutral">
+                        <td class="row-num">${String(i + 1).padStart(2, "0")}</td>
+                        <td style="font-weight:500; color:var(--ink); font-size:13.5px;">
+                            ${escapeHtml(full)}
+                        </td>
+                        <td style="color:var(--mute); font-size:13px;">${escapeHtml(day)}</td>
+                        <td>
+                            <span class="pill ${h.has_pdf ? "positive" : "neutral"}">${h.has_pdf ? "PDF" : "no PDF"}</span>
+                            <span class="pill ${h.has_xlsx ? "positive" : "neutral"}" style="margin-left:6px;">${h.has_xlsx ? "Excel" : "no Excel"}</span>
+                        </td>
+                        <td>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                ${pdfBtn}
+                                ${xlsxBtn}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+
+            // Wire up the buttons
+            $$("#histBody button[data-hist-pdf]").forEach((b) => {
+                b.onclick = () => downloadArchived(b.dataset.histPdf, "pdf");
+            });
+            $$("#histBody button[data-hist-xlsx]").forEach((b) => {
+                b.onclick = () => downloadArchived(b.dataset.histXlsx, "xlsx");
+            });
+        });
+    }
+
+    function downloadArchived(date, kind) {
+        const t = getToken();
+        const url = `${API_BASE}/brief/history/${date}/${kind}?token=${encodeURIComponent(t)}&t=${Date.now()}`;
+        window.open(url, "_blank");
+    }
+
+    // Wire up the "Open by date" button
+    document.getElementById("btnOpenByDate").onclick = () => {
+        const picker = document.getElementById("histDatePicker");
+        const date = picker.value;
+        if (!date) {
+            showToast("Please select a date first.");
+            return;
+        }
+
+        // Check if we have a brief for that date
+        const found = historyEntries.find((h) => h.date === date);
+        if (!found) {
+            showToast(`No brief was generated on ${date}.`);
+            return;
+        }
+        if (!found.has_pdf) {
+            showToast(`No PDF available for ${date}.`);
+            return;
+        }
+
+        downloadArchived(date, "pdf");
+    };
+
+    document.getElementById("histSearch").oninput = renderHistory;
+    document.getElementById("btnRefreshHistory").onclick = renderHistory;
+
     document.getElementById("auditSearch").oninput = renderAudit;
     document.getElementById("btnRefreshAudit").onclick = renderAudit;
 
@@ -1687,7 +1930,7 @@
     // ============================================================
     loadAll().then(() => {
         const hash = (location.hash || "").slice(1);
-        if (hash && ["analytics", "brief", "audit", "coverage"].includes(hash)) {
+                if (hash && ["analytics", "brief", "audit", "coverage", "history"].includes(hash)) {
             switchTab(hash);
         }
     });

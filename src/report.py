@@ -1,63 +1,648 @@
 """
 GovPulse — Daily Brief Generator
-Generates the MICT daily brief in Excel and PDF format.
-Only includes stories scraped on the brief's date.
+=================================
+
+Generates the MICT "Government Media Monitoring and Analysis Daily Brief"
+in Excel (.xlsx) and PDF (.pdf) format.
+
+The PDF is a faithful match of the manual MICT brief:
+- Cover band at the top of page 1 (~30% of page height) with Coat of Arms,
+  outlined "Government" title and subtitle.
+- Solid medium-blue date bar directly below.
+- Dense 8-column table with thin blue borders and coloured row text.
+- Centered footer with bulleted review note and a colour-key legend.
+
+Public API
+----------
+    generate_report(input_file, output_file)     # Excel
+    generate_pdf(input_file, output_file)        # PDF
+    generate_all(input_file)                     # Both
 """
 
-import json
-import os
-import sys
-import io
-from datetime import datetime
+from __future__ import annotations
 
+import io
+import json
+import math
+import os
+import re
+import shutil
+import sys
+from datetime import date, datetime
+from functools import lru_cache
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+from xml.sax.saxutils import escape
+
+# Excel
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.units import cm
+# PDF
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    BaseDocTemplate,
+    Frame,
+    NextPageTemplate,
+    PageTemplate,
+    Paragraph,
+    Table,
+    TableStyle,
 )
-from reportlab.lib.enums import TA_LEFT, TA_CENTER
 
 
+# ======================================================================
+# STDIO ENCODING
+# ======================================================================
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 
-SENTIMENT_COLORS = {
+# ======================================================================
+# PATHS
+# ======================================================================
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+BRIEFS_DIR = os.path.join(PROJECT_ROOT, "data", "processed", "briefs")
+
+
+# ======================================================================
+# COLOURS (Excel)
+# ======================================================================
+SENTIMENT_COLORS_XLSX = {
     "Positive": "C6EFCE",
     "Neutral":  "FFFFFF",
     "Negative": "FFC7CE",
 }
-
-SENTIMENT_TEXT_COLORS = {
+SENTIMENT_TEXT_COLORS_XLSX = {
     "Positive": "006100",
     "Neutral":  "000000",
     "Negative": "9C0006",
 }
 
 
-def load_stories(input_file="data/processed/mapped.json",
-                 approvals_file="data/processed/approvals.json",
-                 exclude_unmapped=True):
-    """
-    Load mapped stories, filter to today's scrape date only, and enrich
-    each with its approved response.
+# ======================================================================
+# COLOURS (PDF) — manual brief palette
+# ======================================================================
+BANNER_BLUE = colors.HexColor("#8FC4E6")     # header band background
+LETTER_FILL = colors.HexColor("#B4DAF2")     # outlined letter fill
+OUTLINE_NAVY = colors.HexColor("#1F3864")    # outlined letter outline
+DATE_BAR_BLUE = colors.HexColor("#4472C4")   # date bar + table borders
+TABLE_HEADER_BLUE = colors.HexColor("#1F3864")
+GRID_BLUE = colors.HexColor("#4472C4")       # table border colour
+TEXT_BLACK = colors.black
+WHITE = colors.white
 
-    Filtering logic:
-      1. Keep only stories whose scraped_at date == today.
-      2. If today has no stories (scraper not yet run), fall back to the
-         most recent date with data — the brief is never empty.
-      3. Optionally exclude unmapped stories.
-      4. Approvals only appear if they were made on or after the brief date.
-    """
+# Row text colours (manual brief convention)
+POSITIVE_TEXT = colors.HexColor("#00A650")   # green
+NEGATIVE_TEXT = colors.HexColor("#D3202F")   # red
+NEUTRAL_TEXT = colors.black
+
+
+# ======================================================================
+# PAGE GEOMETRY
+# ======================================================================
+PAGE_W, PAGE_H = landscape(A4)               # 841.89 x 595.28
+
+# Column widths — matched to manual brief (sums to 27.6 cm)
+COL_WIDTHS_CM = [2.0, 1.4, 4.3, 6.2, 4.0, 2.0, 4.0, 3.7]
+COL_WIDTHS = [w * cm for w in COL_WIDTHS_CM]
+CONTENT_W = sum(COL_WIDTHS)
+MARGIN_X = (PAGE_W - CONTENT_W) / 2
+
+# Header band = ~30 % of page 1
+BANNER_H = PAGE_H * 0.33
+DATE_BAR_H = 26.0
+SMALL_HEADER_H = 34.0
+
+FOOTER_H = 90.0
+FOOTER_BOTTOM = 14.0
+
+
+# ======================================================================
+# TYPOGRAPHY — Times (matches manual brief)
+# ======================================================================
+FONT_BOLD = "Times-Bold"
+FONT_BOLD_ITALIC = "Times-BoldItalic"
+FONT_REGULAR = "Times-Roman"
+FONT_ITALIC = "Times-Italic"
+
+SIZE_GOVERNMENT = 54
+SIZE_SUBTITLE = 24
+SIZE_REPUBLIC = 11
+SIZE_MINISTRY = 13
+SIZE_TABLE_HEADER = 8.5
+SIZE_TABLE_BODY = 8
+SIZE_DATE_BAR = 14
+
+CAP_HEIGHT = 0.70
+
+OUTLINE_THICKNESS = 3.0
+OUTLINE_STEP_DEG = 6
+
+COAT_MAX_H = 78.0
+COAT_TOP_GAP = 10.0
+SUBTITLE_SIDE_MARGIN = 22.0
+
+
+COLUMN_HEADERS = [
+    "Newspaper",
+    '<font size="7.5">Page<br/>Number</font>',
+    "Headline",
+    "Brief Summary",
+    'Government source quoted<br/><font size="7">(official interviewed, media '
+    "statement, report, event speech)</font>",
+    "Sentiment",
+    "O/M/A, Institution(s)",
+    "Comment / Recommendation",
+]
+
+FOOTER_REVIEW_TEXT = (
+    "Kindly review the communication recommendations above and inform the MICT "
+    "of any responses or actions taken by the institution to counter negative "
+    "coverage."
+)
+
+_MONTHS = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY",
+           "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"]
+_DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY",
+         "SUNDAY"]
+
+
+# ======================================================================
+# TEXT HELPERS
+# ======================================================================
+def _clean(value: Any) -> str:
+    text = "" if value is None else str(value)
+    text = text.replace("\u2713", "Approved:").replace("\u2714", "Approved:")
+    text = re.sub(r"[\u2000-\u200b\u202f\u205f\u3000]", " ", text)
+    return text.encode("cp1252", "ignore").decode("cp1252")
+
+
+def _para_text(value: Any) -> str:
+    return escape(_clean(value)).replace("\r\n", "\n").replace("\n", "<br/>")
+
+
+def _normalise_sentiment(value: Any) -> str:
+    label = _clean(value).strip().title()
+    return label if label in ("Positive", "Negative", "Neutral") else "Neutral"
+
+
+def _sentiment_colour(sentiment: str) -> colors.Color:
+    return {
+        "Positive": POSITIVE_TEXT,
+        "Negative": NEGATIVE_TEXT,
+        "Neutral":  NEUTRAL_TEXT,
+    }.get(sentiment, NEUTRAL_TEXT)
+
+
+def _format_orgs(story: Dict[str, Any]) -> str:
+    orgs = story.get("mapped_org") or story.get("oma") or []
+    if isinstance(orgs, str):
+        orgs = [orgs]
+    orgs = [str(o) for o in orgs if o]
+    return "; ".join(orgs) if orgs else "Unmapped"
+
+
+def _format_page(value: Any) -> str:
+    if value is None or str(value).strip() == "":
+        return "Online"
+    return str(value)
+
+
+def format_brief_date(brief_date: Any) -> str:
+    parsed: Optional[date] = None
+    if isinstance(brief_date, datetime):
+        parsed = brief_date.date()
+    elif isinstance(brief_date, date):
+        parsed = brief_date
+    else:
+        try:
+            parsed = datetime.fromisoformat(str(brief_date)[:10]).date()
+        except ValueError:
+            parsed = None
+    if parsed is None:
+        return f"DATE: {_clean(brief_date).upper()}"
+    return (f"DATE: {_DAYS[parsed.weekday()]}, {parsed.day:02d} "
+            f"{_MONTHS[parsed.month - 1]} {parsed.year}")
+
+
+def _fit_font_size(text: str, font: str, size: float, max_width: float) -> float:
+    width = stringWidth(text, font, size)
+    return size if width <= max_width else size * max_width / width
+
+
+# ======================================================================
+# COAT OF ARMS
+# ======================================================================
+def _candidate_coat_paths() -> List[str]:
+    paths: List[str] = []
+    override = os.environ.get("GOVPULSE_COAT_OF_ARMS")
+    if override:
+        paths.append(override)
+    for base in (PROJECT_ROOT, SCRIPT_DIR, os.getcwd()):
+        paths.append(os.path.join(base, "web", "assets", "coat_of_arms.png"))
+    return paths
+
+
+@lru_cache(maxsize=1)
+def _load_coat_of_arms() -> Optional[Tuple[str, Tuple[int, int]]]:
+    for path in _candidate_coat_paths():
+        if os.path.isfile(path):
+            try:
+                return path, ImageReader(path).getSize()
+            except Exception:
+                continue
+    return None
+
+
+def _coat_size(max_h: float) -> Tuple[float, float]:
+    loaded = _load_coat_of_arms()
+    if loaded is None:
+        return max_h * 0.85, max_h
+    iw, ih = loaded[1]
+    scale = max_h / ih
+    return iw * scale, max_h
+
+
+def draw_coat_of_arms(c, x: float, y: float, w: float, h: float) -> None:
+    loaded = _load_coat_of_arms()
+    if loaded is not None:
+        try:
+            c.drawImage(loaded[0], x, y, width=w, height=h, mask="auto",
+                        preserveAspectRatio=True)
+            return
+        except Exception:
+            pass
+    c.saveState()
+    c.setStrokeColor(WHITE)
+    c.setFillColor(WHITE)
+    c.setStrokeAlpha(0.45)
+    c.setFillAlpha(0.45)
+    c.setLineWidth(1.0)
+    c.setDash(3, 3)
+    c.roundRect(x, y, w, h, 4, stroke=1, fill=0)
+    c.restoreState()
+
+
+# ======================================================================
+# OUTLINED LETTERING
+# ======================================================================
+def draw_outlined_text(c, text: str, cx: float, baseline: float, font: str,
+                       size: float, fill, outline,
+                       thickness: float = OUTLINE_THICKNESS,
+                       step_deg: int = OUTLINE_STEP_DEG) -> None:
+    """Centred text with a thick, smooth outline (two-ring circle technique)."""
+    x = cx - stringWidth(text, font, size) / 2
+    c.saveState()
+    c.setFont(font, size)
+    c.setFillColor(outline)
+    for radius in (thickness, thickness * 0.55):
+        for angle in range(0, 360, step_deg):
+            rad = math.radians(angle)
+            c.drawString(x + math.cos(rad) * radius,
+                         baseline + math.sin(rad) * radius, text)
+    c.setFillColor(fill)
+    c.drawString(x, baseline, text)
+    c.restoreState()
+
+
+# ======================================================================
+# HEADER BAND (page 1)
+# ======================================================================
+def draw_banner(c, x: float, y: float, w: float, h: float) -> None:
+    """Manual-brief header: blue band, Coat of Arms, outlined titles."""
+    cx, top = x + w / 2, y + h
+
+    coat_w, coat_h = _coat_size(COAT_MAX_H)
+    coat_x = cx - coat_w / 2
+    coat_y = top - COAT_TOP_GAP - coat_h
+
+    republic_y = coat_y - 11
+    ministry_y = republic_y - 14
+    gov_y = ministry_y - (6 + OUTLINE_THICKNESS + CAP_HEIGHT * SIZE_GOVERNMENT)
+
+    subtitle = "MEDIA MONITORING AND ANALYSIS DAILY BRIEF"
+    sub_size = _fit_font_size(subtitle, FONT_BOLD, SIZE_SUBTITLE,
+                              w - 2 * SUBTITLE_SIDE_MARGIN - 2 * OUTLINE_THICKNESS)
+    sub_y = gov_y - (OUTLINE_THICKNESS * 2 + 6 + CAP_HEIGHT * sub_size)
+
+    ministry = "Ministry of Information and Communication Technology"
+
+    # Background
+    c.saveState()
+    c.setFillColor(BANNER_BLUE)
+    c.rect(x, y, w, h, stroke=0, fill=1)
+    c.restoreState()
+
+    # Coat of arms
+    draw_coat_of_arms(c, coat_x, coat_y, coat_w, coat_h)
+
+    # Small black text
+    c.saveState()
+    c.setFillColor(TEXT_BLACK)
+    c.setFont(FONT_BOLD, SIZE_REPUBLIC)
+    c.drawCentredString(cx, republic_y, "Republic of Namibia")
+    c.setFont(FONT_BOLD, SIZE_MINISTRY)
+    c.drawCentredString(cx, ministry_y, ministry)
+    c.restoreState()
+
+    # Outlined titles
+    draw_outlined_text(c, "Government", cx, gov_y, FONT_BOLD, SIZE_GOVERNMENT,
+                       LETTER_FILL, OUTLINE_NAVY)
+    draw_outlined_text(c, subtitle, cx, sub_y, FONT_BOLD, sub_size,
+                       LETTER_FILL, OUTLINE_NAVY)
+
+
+def draw_date_bar(c, y_top: float, text: str) -> None:
+    """Solid blue date bar, DATE_BAR_H tall, right below the header."""
+    y = y_top - DATE_BAR_H
+    c.saveState()
+    c.setFillColor(DATE_BAR_BLUE)
+    c.rect(0, y, PAGE_W, DATE_BAR_H, stroke=0, fill=1)
+    c.setFillColor(WHITE)
+    c.setFont(FONT_BOLD, SIZE_DATE_BAR)
+    c.drawCentredString(PAGE_W / 2,
+                        y + (DATE_BAR_H - SIZE_DATE_BAR * CAP_HEIGHT) / 2,
+                        text)
+    c.restoreState()
+
+
+def draw_small_header(c, date_text: str) -> None:
+    """Slim repeated header for pages 2+."""
+    y = PAGE_H - SMALL_HEADER_H
+    c.saveState()
+    c.setFillColor(BANNER_BLUE)
+    c.rect(0, y, PAGE_W, SMALL_HEADER_H, stroke=0, fill=1)
+    c.setFillColor(DATE_BAR_BLUE)
+    c.rect(0, y, PAGE_W, 2.0, stroke=0, fill=1)
+
+    text_x = MARGIN_X
+    loaded = _load_coat_of_arms()
+    if loaded is not None:
+        iw, ih = loaded[1]
+        h = SMALL_HEADER_H - 10
+        w = iw * h / ih
+        try:
+            c.drawImage(loaded[0], MARGIN_X, y + 5, width=w, height=h, mask="auto")
+            text_x = MARGIN_X + w + 8
+        except Exception:
+            pass
+
+    c.setFillColor(OUTLINE_NAVY)
+    c.setFont(FONT_BOLD, 11)
+    c.drawString(text_x, y + SMALL_HEADER_H / 2 - 3,
+                 "Government Media Monitoring and Analysis Daily Brief")
+    c.setFont(FONT_BOLD, 9)
+    c.drawRightString(PAGE_W - MARGIN_X, y + SMALL_HEADER_H / 2 - 3, date_text)
+    c.restoreState()
+
+
+# ======================================================================
+# FOOTER — centered, bulleted review note + colour-key legend
+# ======================================================================
+def draw_footer(c, timestamp: str, page_number: int) -> None:
+    """Manual-brief style centered footer."""
+    c.saveState()
+
+    # 1) Bulleted review note (wraps to 2 lines)
+    review_lines = [
+        "Kindly review the communication recommendations above and inform",
+        "the MICT of any responses or actions taken by the institution to",
+        "counter negative coverage.",
+    ]
+
+    cx = PAGE_W / 2
+    y = FOOTER_BOTTOM + 60
+
+    # Bullet + first line
+    c.setFillColor(TEXT_BLACK)
+    c.setFont(FONT_REGULAR, 9)
+    bullet_x = MARGIN_X + 30
+    c.drawString(bullet_x, y, "\u2022")
+    c.drawString(bullet_x + 12, y, review_lines[0])
+    c.drawString(bullet_x + 12, y - 11, review_lines[1])
+    c.drawString(bullet_x + 12, y - 22, review_lines[2])
+
+    # 2) NOTES: header
+    y -= 42
+    c.setFont(FONT_BOLD, 10)
+    c.drawCentredString(cx, y, "NOTES:")
+
+    # 3) Three colour dots + labels
+    y -= 16
+    line_h = 12
+    label_x = cx - 90
+    dot_x = label_x - 12
+
+    # Red bullet
+    c.setFillColor(colors.HexColor("#FF0000"))
+    c.circle(dot_x, y + 3, 2.2, stroke=0, fill=1)
+    c.setFillColor(colors.HexColor("#FF0000"))
+    c.setFont(FONT_REGULAR, 9)
+    c.drawString(label_x, y, "Highlight in red: Story is negative")
+
+    y -= line_h
+    c.setFillColor(colors.HexColor("#00A650"))
+    c.circle(dot_x, y + 3, 2.2, stroke=0, fill=1)
+    c.setFillColor(colors.HexColor("#00A650"))
+    c.drawString(label_x, y, "Highlight in green: Story is positive")
+
+    y -= line_h
+    c.setFillColor(TEXT_BLACK)
+    c.circle(dot_x, y + 3, 2.2, stroke=0, fill=1)
+    c.drawString(label_x, y, "Highlight in black: Story is neutral")
+
+    # 4) Credit + page number (small, at bottom)
+    c.setFillColor(colors.HexColor("#555B66"))
+    c.setFont(FONT_ITALIC, 7)
+    c.drawString(MARGIN_X, FOOTER_BOTTOM,
+                 f"Generated by GovPulse \u2014 Government Media Intelligence "
+                 f"Platform | {timestamp}")
+    c.drawRightString(MARGIN_X + CONTENT_W, FOOTER_BOTTOM, f"Page {page_number}")
+
+    c.restoreState()
+
+
+# ======================================================================
+# STYLES + TABLE
+# ======================================================================
+def build_styles() -> Dict[str, ParagraphStyle]:
+    """Paragraph styles used by the PDF table."""
+    styles = {
+        "th": ParagraphStyle(
+            "th", fontName=FONT_BOLD, fontSize=SIZE_TABLE_HEADER,
+            leading=10, textColor=TABLE_HEADER_BLUE, alignment=TA_LEFT,
+        ),
+        "cell": ParagraphStyle(
+            "cell", fontName=FONT_REGULAR, fontSize=SIZE_TABLE_BODY,
+            leading=10, textColor=TEXT_BLACK, alignment=TA_LEFT,
+        ),
+        "empty": ParagraphStyle(
+            "empty", fontName=FONT_ITALIC, fontSize=SIZE_TABLE_BODY + 1,
+            leading=11, textColor=colors.HexColor("#555B66"),
+            alignment=TA_CENTER,
+        ),
+    }
+    # Per-sentiment cell styles (whole row's text is coloured)
+    for sentiment, colour in (
+        ("Positive", POSITIVE_TEXT),
+        ("Negative", NEGATIVE_TEXT),
+        ("Neutral",  NEUTRAL_TEXT),
+    ):
+        styles[f"row_{sentiment}"] = ParagraphStyle(
+            f"row_{sentiment}", fontName=FONT_REGULAR,
+            fontSize=SIZE_TABLE_BODY, leading=10,
+            textColor=colour, alignment=TA_LEFT,
+        )
+        styles[f"row_{sentiment}_bold"] = ParagraphStyle(
+            f"row_{sentiment}_bold", fontName=FONT_BOLD,
+            fontSize=SIZE_TABLE_BODY, leading=10,
+            textColor=colour, alignment=TA_LEFT,
+        )
+    return styles
+
+
+def build_story_table(stories: Sequence[Dict[str, Any]],
+                      styles: Dict[str, ParagraphStyle]) -> Table:
+    """Manual-brief style table: blue text header on white, thin blue borders,
+    whole row's text coloured by sentiment."""
+    header_row = [Paragraph(h, styles["th"]) for h in COLUMN_HEADERS]
+    rows: List[List[Any]] = [header_row]
+
+    commands: List[Tuple] = [
+        # Header row: white background, blue text (matches manual brief)
+        ("BACKGROUND", (0, 0), (-1, 0), WHITE),
+        ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
+        ("VALIGN", (0, 1), (-1, -1), "TOP"),
+        # Thin blue grid
+        ("GRID", (0, 0), (-1, -1), 0.6, GRID_BLUE),
+        # Padding
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]
+
+    if not stories:
+        rows.append([
+            Paragraph("No stories available for this date.", styles["empty"])
+        ] + [""] * 7)
+        commands += [
+            ("SPAN", (0, 1), (-1, 1)),
+            ("TOPPADDING", (0, 1), (-1, 1), 14),
+            ("BOTTOMPADDING", (0, 1), (-1, 1), 14),
+        ]
+    else:
+        for i, story in enumerate(stories, start=1):
+            sentiment = _normalise_sentiment(story.get("sentiment"))
+            cell = styles[f"row_{sentiment}"]
+            bold = styles[f"row_{sentiment}_bold"]
+
+            rows.append([
+                Paragraph(_para_text(story.get("source")), bold),
+                Paragraph(_para_text(_format_page(story.get("page"))), cell),
+                Paragraph(_para_text(story.get("headline")), bold),
+                Paragraph(_para_text(story.get("ai_summary")), cell),
+                Paragraph(_para_text(story.get("government_source") or "None"), cell),
+                Paragraph(sentiment, cell),
+                Paragraph(_para_text(_format_orgs(story)), cell),
+                Paragraph(_para_text(story.get("comment") or "None"), cell),
+            ])
+
+            # Colour the ENTIRE row's background by sentiment
+            bg = {
+                "Positive": colors.HexColor("#E8F5EC"),   # soft green
+                "Negative": colors.HexColor("#FCE9EA"),   # soft red
+                "Neutral":  colors.HexColor("#F5F5F5"),   # very light gray
+            }.get(sentiment)
+            if bg:
+                commands.append(("BACKGROUND", (0, i), (-1, i), bg))
+
+    table = Table(
+        rows, colWidths=COL_WIDTHS, repeatRows=1, splitInRow=1, hAlign="CENTER",
+    )
+    table.setStyle(TableStyle(commands))
+    return table
+
+
+# ======================================================================
+# DOCUMENT ASSEMBLY
+# ======================================================================
+def _build_document(output_path: str, date_text: str, timestamp: str
+                    ) -> BaseDocTemplate:
+    """BaseDocTemplate with a full-banner template (page 1) and a slim one."""
+
+    def on_first_page(canvas, doc):
+        draw_banner(canvas, 0, PAGE_H - BANNER_H, PAGE_W, BANNER_H)
+        draw_date_bar(canvas, PAGE_H - BANNER_H, date_text)
+        draw_footer(canvas, timestamp, canvas.getPageNumber())
+
+    def on_later_pages(canvas, doc):
+        draw_small_header(canvas, date_text)
+        draw_footer(canvas, timestamp, canvas.getPageNumber())
+
+    doc = BaseDocTemplate(
+        output_path,
+        pagesize=(PAGE_W, PAGE_H),
+        leftMargin=MARGIN_X, rightMargin=MARGIN_X,
+        topMargin=0, bottomMargin=FOOTER_H,
+        title="Government Media Monitoring and Analysis Daily Brief",
+        author="GovPulse — Government Media Intelligence Platform",
+        creator="GovPulse",
+    )
+
+    frame_kwargs = dict(
+        x1=MARGIN_X, y1=FOOTER_H, width=CONTENT_W,
+        leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0,
+    )
+    first_frame = Frame(
+        height=PAGE_H - BANNER_H - DATE_BAR_H - FOOTER_H,
+        id="first_frame", **frame_kwargs,
+    )
+    later_frame = Frame(
+        height=PAGE_H - SMALL_HEADER_H - 6 - FOOTER_H,
+        id="later_frame", **frame_kwargs,
+    )
+
+    doc.addPageTemplates([
+        PageTemplate(id="first", frames=[first_frame],
+                     onPage=on_first_page, pagesize=(PAGE_W, PAGE_H)),
+        PageTemplate(id="later", frames=[later_frame],
+                     onPage=on_later_pages, pagesize=(PAGE_W, PAGE_H)),
+    ])
+    return doc
+
+
+# ======================================================================
+# ARCHIVE
+# ======================================================================
+def _archive_brief(source_path: str, brief_date: str, ext: str) -> bool:
+    os.makedirs(BRIEFS_DIR, exist_ok=True)
+    dest_path = os.path.join(BRIEFS_DIR, f"{brief_date}.{ext}")
+    try:
+        shutil.copy2(source_path, dest_path)
+        print(f"    [OK] Archived -> {dest_path}")
+        return True
+    except Exception as e:
+        print(f"    [WARN] Could not archive {ext}: {e}")
+        return False
+
+
+# ======================================================================
+# STORY LOADING
+# ======================================================================
+def load_stories(input_file: str = "data/processed/mapped.json",
+                 approvals_file: str = "data/processed/approvals.json",
+                 exclude_unmapped: bool = True):
     with open(input_file, "r", encoding="utf-8-sig") as f:
         all_stories = json.load(f)
 
-    # Determine the brief date and filter stories
     today = datetime.now().date().isoformat()
 
     stories_today = [
@@ -68,7 +653,6 @@ def load_stories(input_file="data/processed/mapped.json",
     if stories_today:
         brief_date = today
     else:
-        # Fallback: use the most recent date that has stories
         dates = sorted(
             set(
                 (s.get("scraped_at") or "")[:10]
@@ -92,7 +676,6 @@ def load_stories(input_file="data/processed/mapped.json",
     print(f"Brief date: {brief_date} — {len(stories_today)} stories "
           f"(out of {len(all_stories)} total)")
 
-    # Exclude unmapped stories from the brief
     if exclude_unmapped:
         stories_today = [
             s for s in stories_today
@@ -100,8 +683,7 @@ def load_stories(input_file="data/processed/mapped.json",
         ]
         print(f"After excluding unmapped: {len(stories_today)} stories")
 
-    # Load approvals
-    approvals = {}
+    approvals: Dict[str, Any] = {}
     if os.path.exists(approvals_file):
         try:
             with open(approvals_file, "r", encoding="utf-8-sig") as f:
@@ -109,8 +691,6 @@ def load_stories(input_file="data/processed/mapped.json",
         except Exception as e:
             print(f"[WARN] Could not load approvals: {e}")
 
-    # Attach approval markers ONLY to stories in today's brief,
-    # and ONLY if the approval was made on/after the brief date.
     for story in stories_today:
         headline = story.get("headline", "")
         if headline in approvals:
@@ -118,7 +698,6 @@ def load_stories(input_file="data/processed/mapped.json",
             approved_at = (approval.get("approved_at") or "")[:10]
             ministry = approval.get("ministry", "")
             final_text = approval.get("final_text", "")
-
             if approved_at and approved_at >= brief_date:
                 story["comment"] = (
                     f"✓ {approved_at} — {ministry}:\n\"{final_text}\""
@@ -131,21 +710,14 @@ def load_stories(input_file="data/processed/mapped.json",
     return stories_today, brief_date
 
 
-def format_oma(oma_list):
-    if not oma_list or oma_list == ["Unmapped"]:
-        return "Unmapped"
-    return "; ".join(oma_list)
-
-
-# ------------------------------------------------------------------
-# EXCEL
-# ------------------------------------------------------------------
-def build_workbook(stories, brief_date):
+# ======================================================================
+# EXCEL GENERATION
+# ======================================================================
+def build_workbook(stories: List[Dict[str, Any]], brief_date: str) -> Workbook:
     wb = Workbook()
     ws = wb.active
     ws.title = "Daily Brief"
 
-    # Title block
     ws.merge_cells("A1:H1")
     title_cell = ws["A1"]
     title_cell.value = "GOVERNMENT MEDIA MONITORING AND ANALYSIS DAILY BRIEF"
@@ -162,7 +734,6 @@ def build_workbook(stories, brief_date):
     date_cell.alignment = Alignment(horizontal="center")
     ws.row_dimensions[2].height = 20
 
-    # Header row
     headers = [
         "Newspaper", "Page", "Headline", "Brief Summary",
         "Government Source Quoted", "Sentiment", "O/M/A",
@@ -183,12 +754,16 @@ def build_workbook(stories, brief_date):
     ws.row_dimensions[header_row].height = 30
     ws.freeze_panes = f"A{header_row + 1}"
 
-    # Data rows
     row = header_row + 1
     for story in stories:
         sentiment = story.get("sentiment", "Neutral")
-        bg_color = SENTIMENT_COLORS.get(sentiment, "FFFFFF")
-        text_color = SENTIMENT_TEXT_COLORS.get(sentiment, "000000")
+        bg_color = SENTIMENT_COLORS_XLSX.get(sentiment, "FFFFFF")
+        text_color = SENTIMENT_TEXT_COLORS_XLSX.get(sentiment, "000000")
+
+        orgs = story.get("mapped_org") or story.get("oma") or []
+        if isinstance(orgs, str):
+            orgs = [orgs]
+        orgs_str = "; ".join(str(o) for o in orgs if o) if orgs else "Unmapped"
 
         values = [
             story.get("source", ""),
@@ -197,7 +772,7 @@ def build_workbook(stories, brief_date):
             story.get("ai_summary", ""),
             story.get("government_source", "") or "None",
             sentiment,
-            format_oma(story.get("oma", [])),
+            orgs_str,
             story.get("comment", "None"),
         ]
 
@@ -208,7 +783,6 @@ def build_workbook(stories, brief_date):
                 left=Side(style="thin"), right=Side(style="thin"),
                 top=Side(style="thin"), bottom=Side(style="thin"),
             )
-
             if col_num == 6:
                 cell.fill = PatternFill("solid", fgColor=bg_color)
                 cell.font = Font(bold=True, color=text_color)
@@ -216,25 +790,17 @@ def build_workbook(stories, brief_date):
         summary_text = str(story.get("ai_summary", "") or "")
         estimated_lines = max(2, len(summary_text) // 55)
         ws.row_dimensions[row].height = 15 * estimated_lines
-
         row += 1
 
-    widths = {
-        "A": 14, "B": 8, "C": 32, "D": 60,
-        "E": 28, "F": 11, "G": 32, "H": 22,
-    }
+    widths = {"A": 14, "B": 8, "C": 32, "D": 60,
+              "E": 28, "F": 11, "G": 32, "H": 22}
     for col, width in widths.items():
         ws.column_dimensions[col].width = width
 
-    # Footer
     footer_row = row + 1
     ws.merge_cells(f"A{footer_row}:H{footer_row}")
     footer = ws.cell(row=footer_row, column=1)
-    footer.value = (
-        "Kindly review the communication recommendations above and inform "
-        "the MICT of any responses or actions taken by the institution to "
-        "counter negative coverage."
-    )
+    footer.value = FOOTER_REVIEW_TEXT
     footer.font = Font(italic=True, size=10)
     footer.alignment = Alignment(wrap_text=True)
 
@@ -261,8 +827,8 @@ def build_workbook(stories, brief_date):
     return wb
 
 
-def generate_report(input_file="data/processed/mapped.json",
-                    output_file="data/processed/daily_brief.xlsx"):
+def generate_report(input_file: str = "data/processed/mapped.json",
+                    output_file: str = "data/processed/daily_brief.xlsx"):
     print(f"Loading stories from {input_file}...")
     stories, brief_date = load_stories(input_file)
     print(f"Generating daily brief for {len(stories)} stories...")
@@ -285,166 +851,40 @@ def generate_report(input_file="data/processed/mapped.json",
     mapped = sum(1 for s in stories if s.get("oma") and s["oma"] != ["Unmapped"])
     print(f"\nMapped stories: {mapped}/{len(stories)}")
 
+    _archive_brief(output_file, brief_date, "xlsx")
 
-# ------------------------------------------------------------------
-# PDF
-# ------------------------------------------------------------------
-def generate_pdf(input_file="data/processed/mapped.json",
-                 output_file="data/processed/daily_brief.pdf"):
-    """Generate the daily brief as a PDF."""
+
+# ======================================================================
+# PDF WRAPPER
+# ======================================================================
+def _render_pdf(stories: List[Dict[str, Any]], brief_date: str,
+                output_path: str) -> str:
+    folder = os.path.dirname(os.path.abspath(output_path))
+    os.makedirs(folder, exist_ok=True)
+
+    styles = build_styles()
+    date_text = format_brief_date(brief_date)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    doc = _build_document(output_path, date_text, timestamp)
+    table = build_story_table(stories or [], styles)
+    doc.build([NextPageTemplate("later"), table])
+    return output_path
+
+
+def generate_pdf(input_file: str = "data/processed/mapped.json",
+                 output_file: str = "data/processed/daily_brief.pdf"):
     print(f"Loading stories from {input_file}...")
     stories, brief_date = load_stories(input_file)
     print(f"Generating PDF brief for {len(stories)} stories...")
 
-    doc = SimpleDocTemplate(
-        output_file,
-        pagesize=landscape(A4),
-        leftMargin=1.2 * cm,
-        rightMargin=1.2 * cm,
-        topMargin=1.2 * cm,
-        bottomMargin=1.2 * cm,
-        title="Government Media Monitoring and Analysis Daily Brief",
-        author="GovPulse — Team Binary",
-    )
-
-    styles = getSampleStyleSheet()
-
-    title_style = ParagraphStyle(
-        "GpTitle", parent=styles["Heading1"], fontSize=14,
-        textColor=colors.HexColor("#FFFFFF"), alignment=TA_CENTER, spaceAfter=0,
-    )
-    date_style = ParagraphStyle(
-        "GpDate", parent=styles["Normal"], fontSize=11,
-        alignment=TA_CENTER, spaceAfter=8,
-    )
-    header_style = ParagraphStyle(
-        "GpHeader", parent=styles["Normal"], fontSize=8,
-        textColor=colors.HexColor("#FFFFFF"), alignment=TA_CENTER, leading=10,
-    )
-    cell_style = ParagraphStyle(
-        "GpCell", parent=styles["Normal"], fontSize=7.5, leading=9,
-    )
-    footer_style = ParagraphStyle(
-        "GpFooter", parent=styles["Normal"], fontSize=9,
-        alignment=TA_LEFT, leading=11,
-    )
-    notes_style = ParagraphStyle(
-        "GpNotes", parent=styles["Normal"], fontSize=8,
-        alignment=TA_LEFT, leading=10, textColor=colors.HexColor("#555555"),
-    )
-
-    elements = []
-
-    # Title bar
-    title_table = Table(
-        [[Paragraph("GOVERNMENT MEDIA MONITORING AND ANALYSIS DAILY BRIEF", title_style)]],
-        colWidths=[doc.width],
-    )
-    title_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#1F3864")),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-    ]))
-    elements.append(title_table)
-
-    formatted_date = datetime.fromisoformat(brief_date).strftime("%A, %d %B %Y").upper()
-    date_text = f"DATE: {formatted_date}"
-    elements.append(Paragraph(date_text, date_style))
-    elements.append(Spacer(1, 0.3 * cm))
-
-    # Data table
-    headers = [
-        "Newspaper", "Page", "Headline", "Brief Summary",
-        "Government Source Quoted", "Sentiment", "O/M/A", "Comment"
-    ]
-    header_row = [Paragraph(h, header_style) for h in headers]
-    rows = [header_row]
-
-    for story in stories:
-        sentiment = story.get("sentiment", "Neutral")
-        row = [
-            Paragraph(story.get("source", ""), cell_style),
-            Paragraph(story.get("page", "Online"), cell_style),
-            Paragraph(story.get("headline", ""), cell_style),
-            Paragraph(story.get("ai_summary", ""), cell_style),
-            Paragraph(story.get("government_source", "None") or "None", cell_style),
-            Paragraph(sentiment, cell_style),
-            Paragraph(format_oma(story.get("oma", [])), cell_style),
-            Paragraph(story.get("comment", "None") or "None", cell_style),
-        ]
-        rows.append(row)
-
-    col_widths = [
-        2.0 * cm,  # Newspaper
-        1.2 * cm,  # Page
-        4.5 * cm,  # Headline
-        6.0 * cm,  # Summary
-        3.5 * cm,  # Source
-        1.8 * cm,  # Sentiment
-        4.0 * cm,  # O/M/A
-        4.5 * cm,  # Comment
-    ]
-
-    table = Table(rows, colWidths=col_widths, repeatRows=1)
-
-    style = TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4472C4")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#B0B7C3")),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-    ])
-
-    # Colour-code sentiment cells (column 5)
-    for i, story in enumerate(stories, start=1):
-        sentiment = story.get("sentiment", "Neutral")
-        if sentiment == "Positive":
-            style.add("BACKGROUND", (5, i), (5, i), colors.HexColor("#C6EFCE"))
-            style.add("TEXTCOLOR", (5, i), (5, i), colors.HexColor("#006100"))
-        elif sentiment == "Negative":
-            style.add("BACKGROUND", (5, i), (5, i), colors.HexColor("#FFC7CE"))
-            style.add("TEXTCOLOR", (5, i), (5, i), colors.HexColor("#9C0006"))
-        else:
-            style.add("BACKGROUND", (5, i), (5, i), colors.HexColor("#F3F4F6"))
-
-    table.setStyle(style)
-    elements.append(table)
-    elements.append(Spacer(1, 0.5 * cm))
-
-    # Footer
-    footer_text = (
-        "Kindly review the communication recommendations above and inform "
-        "the MICT of any responses or actions taken by the institution to "
-        "counter negative coverage."
-    )
-    elements.append(Paragraph(footer_text, footer_style))
-    elements.append(Spacer(1, 0.3 * cm))
-
-    notes_text = (
-        "<b>NOTES:</b> Highlight in red: Story is negative | "
-        "Highlight in green: Story is positive | "
-        "Highlight in black: Story is neutral"
-    )
-    elements.append(Paragraph(notes_text, notes_style))
-    elements.append(Spacer(1, 0.3 * cm))
-
-    credit_text = (
-        f"Generated by GovPulse — Government Media Intelligence Platform "
-        f"| {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-    )
-    elements.append(Paragraph(credit_text, notes_style))
-
-    doc.build(elements)
+    _render_pdf(stories, brief_date, output_file)
+    _archive_brief(output_file, brief_date, "pdf")
 
     print(f"\n[OK] PDF daily brief saved -> {output_file}")
 
 
-def generate_all(input_file="data/processed/mapped.json"):
-    """Generate both Excel and PDF daily briefs."""
+def generate_all(input_file: str = "data/processed/mapped.json"):
     generate_report(input_file, "data/processed/daily_brief.xlsx")
     generate_pdf(input_file, "data/processed/daily_brief.pdf")
 
