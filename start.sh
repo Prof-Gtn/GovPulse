@@ -87,8 +87,12 @@ print(f"[START] Users created this boot: {created}")
 print(f"[START] Total users now: {len(db.get_all_users())}")
 PY
 
+echo "[START] Downloading NLTK punkt tokenizer..."
+python -m nltk.downloader punkt -q || echo "[START] NLTK download failed (non-fatal)"
+
 # ============================================================
 # Launch the API
 # ============================================================
 echo "[START] Launching uvicorn on port $PORT..."
 exec uvicorn api.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+

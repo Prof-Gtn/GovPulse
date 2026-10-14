@@ -321,6 +321,7 @@
 
         <div class="modal-footer">
             <button class="btn btn-ghost" id="modalCancel">Cancel</button>
+            <button class="btn btn-secondary" id="modalGenerate">⟳ Generate Draft</button>
             <button class="btn btn-primary" id="modalSave">Approve & Log Response</button>
         </div>
     </div>
@@ -686,7 +687,7 @@
         }).join("");
     }
 
-    function openResponseModal(story) {
+        function openResponseModal(story) {
         current = story;
         const draft = responses.find((r) => r.headline === story.headline);
 
@@ -700,11 +701,16 @@
             $("#modalSummarySection").style.display = "none";
         }
 
-        if (draft && draft.draft) {
+        const hasDraft = draft && draft.draft && draft.draft.trim();
+
+        if (hasDraft) {
             $("#modalDraft").value = draft.draft;
+            $("#modalDraft").placeholder = "";
+            $("#modalGenerate").style.display = "none";
         } else {
             $("#modalDraft").value = "";
-            $("#modalDraft").placeholder = "No draft yet. Write your own response or ask MICT for a draft.";
+            $("#modalDraft").placeholder = "No draft yet — click Generate Draft or write your own response.";
+            $("#modalGenerate").style.display = "inline-flex";
         }
 
         $("#modalActionTaken").value = "";
@@ -765,6 +771,36 @@
             closeResponseModal();
             showToast("✅ Response approved and logged.");
             await loadAll();
+        } catch (e) {
+            showToast("Error: " + e.message);
+        }
+
+        btn.disabled = false;
+        btn.textContent = original;
+    });
+
+        $("#modalGenerate").addEventListener("click", async function () {
+        if (!current) return;
+        const btn = this;
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Generating…";
+
+        try {
+            const r = await apiFetch("/responses/generate", {
+                method: "POST",
+                body: JSON.stringify({ headline: current.headline }),
+            });
+            if (!r.ok) throw new Error("Generation failed");
+            const result = await r.json();
+            if (result.status !== "ok" || !result.draft) {
+                throw new Error(result.reason || "No draft produced");
+            }
+
+            $("#modalDraft").value = result.draft;
+            $("#modalDraft").placeholder = "";
+            $("#modalGenerate").style.display = "none";
+            showToast("✅ Draft generated.");
         } catch (e) {
             showToast("Error: " + e.message);
         }
