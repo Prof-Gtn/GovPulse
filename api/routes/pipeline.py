@@ -20,10 +20,18 @@ from api.auth import require_admin_or_analyst
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
 
+# Order matters:
+#   scraper       → writes data/raw/stories.json
+#   analyzer      → reads stories.json, writes data/processed/analyzed.json
+#   mapper        → reads analyzed.json, writes data/processed/mapped.json
+#   sync          → reads mapped.json, upserts into SQLite (no wiping)
+#   report        → reads mapped.json, generates PDF + XLSX
+#   response_desk → reads mapped.json, drafts responses
 STAGES = [
     {"id": "scraper",       "label": "Scraping news sources",  "script": "src/scraper.py",        "timeout": 600},
     {"id": "analyzer",      "label": "Analyzing stories",      "script": "src/analyzer.py",       "timeout": 600},
     {"id": "mapper",        "label": "Mapping to government",  "script": "src/mapper.py",         "timeout": 300},
+    {"id": "sync",          "label": "Syncing to database",    "script": "src/db_import.py",      "timeout": 120},
     {"id": "report",        "label": "Generating daily brief", "script": "src/report.py",         "timeout": 300},
     {"id": "response_desk", "label": "Drafting responses",     "script": "src/response_desk.py",  "timeout": 600},
 ]
@@ -68,6 +76,7 @@ def run_step(req: StageRequest, user: dict = Depends(require_admin_or_analyst)):
         )
 
     if r.returncode != 0:
+        # Surface the last bit of stderr — usually contains the real exception
         raise HTTPException(
             status_code=500,
             detail=f"Stage '{stage['label']}' failed: {r.stderr[-400:]}",
@@ -84,18 +93,41 @@ def run_step(req: StageRequest, user: dict = Depends(require_admin_or_analyst)):
     except Exception:
         pass
 
-    # Import DB back to JSON after pipeline (scraper updates JSON, we re-migrate)
-    try:
-        from src.migrate import migrate_stories, migrate_responses
-        # Actually — the pipeline writes to JSON. We need to re-import from JSON to DB.
-        # For now, sync stories from JSON into DB:
-        from src.db_import import import_from_json
-        import_from_json()
-    except Exception as e:
-        print(f"[PIPELINE] DB sync failed: {e}")
-
     return {
         "stage_id": stage["id"],
         "label": stage["label"],
         "status": "ok",
     }
+
+
+@router.post("/run")
+def run_all(user: dict = Depends(require_admin_or_analyst)):
+    """Run every pipeline stage sequentially."""
+    for stage in STAGES:
+        script_path = os.path.join(PROJECT_ROOT, stage["script"])
+        if not os.path.exists(script_path):
+            raise HTTPException(status_code=500, detail=f"Script not found: {stage['script']}")
+
+        try:
+            r = subprocess.run(
+                [sys.executable, script_path],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                cwd=PROJECT_ROOT,
+                timeout=stage["timeout"],
+            )
+        except subprocess.TimeoutExpired:
+            raise HTTPException(
+                status_code=504,
+                detail=f"Stage '{stage['label']}' timed out after {stage['timeout']}s",
+            )
+
+        if r.returncode != 0:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Stage '{stage['label']}' failed: {r.stderr[-400:]}",
+            )
+
+    return {"status": "complete"}
